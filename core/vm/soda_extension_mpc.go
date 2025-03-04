@@ -772,7 +772,12 @@ func runOpcode(opName string, parametersBitSize []uint32, numInputs int, inputTy
 			if st.Code() == codes.Unavailable { // The server is not available
 				return nil, ErrMPCConnection
 			}
-			return nil, MPCExecutionResult[st.Message()]
+
+			mpcResult := MPCExecutionResult[st.Message()]
+			if mpcResult == nil {
+				return nil, ErrMPCUnknownError
+			}
+			return nil, mpcResult
 		} else {
 			log.Error("RunOpcode - error in gRPC", "error", err)
 			return nil, ErrMPCUnknownError
