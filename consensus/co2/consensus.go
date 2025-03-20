@@ -496,8 +496,6 @@ func (co2 *Co2) addTranscriptHashToExtra(extra []byte) ([]byte, error) {
 
 func (co2 *Co2) ResetTranscript() {
 	co2.transcript = make(types.Transcript, 0)
-	common.SodaTranscript = make([][]byte, 0)
-	common.SodaPrecompileExecutionResult = nil
 }
 
 func (co2 *Co2) GetTranscript() types.Transcript {

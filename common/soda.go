@@ -43,18 +43,16 @@ const (
 )
 
 var (
-	SodaEngine                    bool = false
-	SodaRole                      SodaRoleType
-	SodaExecutor1Address          Address
-	SodaExecutor2Address          Address
-	SodaSequencerAddress          Address
-	SodaSequencerPubKey           string
-	SodaPrecompileExecutionResult [][]byte
-	SodaTranscript                [][]byte
-	MyAddress                     Address
-	Id                            int = -1
-	MpcServerIP                   string
-	MpcServerPort                 string
+	SodaEngine           bool = false
+	SodaRole             SodaRoleType
+	SodaExecutor1Address Address
+	SodaExecutor2Address Address
+	SodaSequencerAddress Address
+	SodaSequencerPubKey  string
+	MyAddress            Address
+	Id                   int = -1
+	MpcServerIP          string
+	MpcServerPort        string
 )
 
 func callDetails() string {
