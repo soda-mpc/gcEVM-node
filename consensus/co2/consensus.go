@@ -373,7 +373,15 @@ func New(config *params.Co2Config, db ethdb.Database, exec1Addr,
 
 func initSES(update []byte) {
 	log.Info("Initializing SES")
-	C.InitSES((*C.uchar)(&update[0]), C.int(len(update)))
+	if len(update) >= math.MaxInt32 {
+		panic("update buffer too large")
+	}
+	ret := C.InitSES((*C.uchar)(&update[0]), C.int(len(update)))
+	if ret.err != nil {
+		errString := C.GoString(ret.err)
+		C.free(unsafe.Pointer(ret.err))
+		panic("failed to initialize SES")
+	}
 }
 
 func (co2 *Co2) GetExecutionState() ExecutionState {
