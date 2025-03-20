@@ -38,6 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/shared"
 	"github.com/stretchr/testify/require"
 )
 
@@ -61,13 +62,13 @@ type roleEngine struct {
 }
 
 type sodaChainMaker struct {
-	cliqueConf *params.CliqueConfig
-	db         ethdb.Database
-	sequencer  *roleEngine
-	executor1  *roleEngine
-	executor2  *roleEngine
-	chain      *core.BlockChain
-	t          *testing.T
+	co2Conf   *params.Co2Config
+	db        ethdb.Database
+	sequencer *roleEngine
+	executor1 *roleEngine
+	executor2 *roleEngine
+	chain     *core.BlockChain
+	t         *testing.T
 }
 
 func (cm *sodaChainMaker) GetDB() ethdb.Database {
@@ -80,13 +81,13 @@ func (cm *sodaChainMaker) GetChain() *core.BlockChain {
 func (cm *sodaChainMaker) resetChain(engineRole co2.SodaRoleType) {
 	db := rawdb.NewMemoryDatabase()
 	cm.db = db
-	engine := co2.New(cm.cliqueConf, nil, cm.executor1.address, cm.executor2.address, cm.sequencer.address, engineRole)
+	engine := co2.New(cm.co2Conf, nil, cm.executor1.address, cm.executor2.address, cm.sequencer.address, engineRole)
 	chain, err := core.NewBlockChain(db, nil, cm.GenesisBlock(), nil, engine, vm.Config{}, nil, nil)
 	require.NoError(cm.t, err)
 	cm.chain = chain
 }
 
-func newSodaChainMaker(t *testing.T, config *params.CliqueConfig) *sodaChainMaker {
+func newSodaChainMaker(t *testing.T, config *params.Co2Config) *sodaChainMaker {
 	sequencerPubKey, sequencerPrivKey, sequencerAddress, seqKeyObj := generateAccountParams()
 	executor1PubKey, executor1PrivKey, executor1Address, exec1KeyObj := generateAccountParams()
 	executor2PubKey, executor2PrivKey, executor2Address, exec2KeyObj := generateAccountParams()
@@ -141,11 +142,11 @@ func newSodaChainMaker(t *testing.T, config *params.CliqueConfig) *sodaChainMake
 	}
 
 	return &sodaChainMaker{
-		t:          t,
-		cliqueConf: config,
-		sequencer:  &seqRoleEngine,
-		executor1:  &exec1RoleEngine,
-		executor2:  &exec2RoleEngine,
+		t:         t,
+		co2Conf:   config,
+		sequencer: &seqRoleEngine,
+		executor1: &exec1RoleEngine,
+		executor2: &exec2RoleEngine,
 	}
 
 }
@@ -174,7 +175,7 @@ func (cm *sodaChainMaker) GenesisBlock() *core.Genesis {
 			ArrowGlacierBlock:   bigZero,
 			GrayGlacierBlock:    bigZero,
 			MergeNetsplitBlock:  bigZero,
-			Clique:              cm.cliqueConf,
+			Co2:                 cm.co2Conf,
 			IsDevMode:           false,
 		},
 		Nonce:      0,
@@ -277,7 +278,7 @@ func (cm *sodaChainMaker) chainConfig() *params.ChainConfig {
 		TerminalTotalDifficulty:       nil,
 		TerminalTotalDifficultyPassed: false,
 		Ethash:                        nil,
-		Clique:                        cm.cliqueConf,
+		Co2:                           cm.co2Conf,
 	}
 }
 
@@ -327,9 +328,9 @@ func signHeader(t *testing.T, header *types.Header, privkey []byte) []byte {
 	return sig
 }
 func populateExtraDataSigners(t *testing.T, extra, sig1, sig2 []byte) []byte {
-	extra, err := co2.InsertIntoExtraData(co2.Signature1, sig1, extra)
+	extra, err := co2.InsertIntoExtraData(shared.Signature1, sig1, extra)
 	require.NoError(t, err)
-	extra, err = co2.InsertIntoExtraData(co2.Signature2, sig2, extra)
+	extra, err = co2.InsertIntoExtraData(shared.Signature2, sig2, extra)
 	require.NoError(t, err)
 	return extra
 }
@@ -345,9 +346,8 @@ func unblockChan(ch chan *types.Block) {
 }
 
 func ChainMaker(t *testing.T) *sodaChainMaker {
-	return newSodaChainMaker(t, &params.CliqueConfig{
+	return newSodaChainMaker(t, &params.Co2Config{
 		Period: 0,
-		Epoch:  30000,
 	})
 }
 

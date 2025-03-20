@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/shared"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,7 +42,7 @@ var (
 		0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C,
 		0x3D, 0x3E, 0x3F, 0x40, 0x41,
 	}
-	extraDataTest = make([]byte, ExtraDataLength)
+	extraDataTest = make([]byte, shared.ExtraDataLength)
 	headerTest    = &types.Header{
 		ParentHash:  common.BytesToHash([]byte("ParentHash")),
 		UncleHash:   common.BytesToHash([]byte("UncleHash")),
@@ -263,7 +264,7 @@ func Test_Finalize_Sequencer_Happy(t *testing.T) {
 	// Arrange
 	transcript := types.Transcript{execOutputTest[0], execOutputTest[1]}
 	hash := transcript.Hash()
-	extraData := make([]byte, ExtraVanityLength+common.HashLength)
+	extraData := make([]byte, shared.ExtraVanityLength+common.HashLength)
 	extraData = append(extraData, signatureTest[:]...)
 
 	engine := co2Engine(Sequencer)
@@ -279,10 +280,10 @@ func Test_Finalize_Sequencer_Happy(t *testing.T) {
 	// Assert (make sure the transcript hash, in the sequencer's case all 0s is
 	// embedded in the header extra data after the vanity bytes and before the signature)
 	newExtraData := header.Extra
-	assert.Equal(t, len(newExtraData), ExtraVanityLength+common.HashLength+ExtraSeal)
-	assert.True(t, !reflect.DeepEqual(newExtraData[ExtraVanityLength:ExtraVanityLength+common.HashLength], hash.Bytes()))
+	assert.Equal(t, len(newExtraData), shared.ExtraVanityLength+common.HashLength+shared.ExtraSeal)
+	assert.True(t, !reflect.DeepEqual(newExtraData[shared.ExtraVanityLength:shared.ExtraVanityLength+common.HashLength], hash.Bytes()))
 	// make sure the transcript hash is all 0s
-	assert.Equal(t, newExtraData[ExtraVanityLength:ExtraVanityLength+common.HashLength], common.Hash{}.Bytes())
+	assert.Equal(t, newExtraData[shared.ExtraVanityLength:shared.ExtraVanityLength+common.HashLength], common.Hash{}.Bytes())
 }
 
 // The Finalize method is used by the Co2 engine to insert the transcript hash
@@ -292,7 +293,7 @@ func Test_Finalize_Sequencer_Happy(t *testing.T) {
 func Test_Finalize_Executor_Happy(t *testing.T) {
 	// Arrange
 	transcript := types.Transcript{execOutputTest[0], execOutputTest[1]}
-	extraData := make([]byte, ExtraDataLength)
+	extraData := make([]byte, shared.ExtraDataLength)
 	doubleSig := append(signatureTest, signatureTest...)
 	extraData = append(extraData, doubleSig...)
 	sequencerHeader := &types.Header{
@@ -303,7 +304,7 @@ func Test_Finalize_Executor_Happy(t *testing.T) {
 		return &mpcStatusTest
 	})
 	header := &types.Header{
-		Extra: make([]byte, ExtraVanityLength+common.HashLength+common.HashLength+ExtraSeal+ExtraSeal),
+		Extra: make([]byte, shared.ExtraVanityLength+common.HashLength+common.HashLength+shared.ExtraSeal+shared.ExtraSeal),
 	}
 
 	expectedBlockHash := calcSeqBlockHashWithSignature(sequencerHeader)
@@ -320,9 +321,9 @@ func Test_Finalize_Executor_Happy(t *testing.T) {
 
 	// Assert
 	newExtraData := header.Extra
-	assert.Equal(t, len(newExtraData), ExtraDataLength)
-	assert.True(t, reflect.DeepEqual(newExtraData[TranscriptHashStart:TranscriptHashEnd], hash.Bytes()))
-	assert.True(t, reflect.DeepEqual(newExtraData[SequencerBlockHashStart:SequencerBlockHashEnd], expectedBlockHash.Bytes()))
+	assert.Equal(t, len(newExtraData), shared.ExtraDataLength)
+	assert.True(t, reflect.DeepEqual(newExtraData[shared.TranscriptHashStart:shared.TranscriptHashEnd], hash.Bytes()))
+	assert.True(t, reflect.DeepEqual(newExtraData[shared.SequencerBlockHashStart:shared.SequencerBlockHashEnd], expectedBlockHash.Bytes()))
 }
 
 func Test_Authorize_Happy(t *testing.T) {
@@ -464,7 +465,7 @@ func Test_HeaderFieldsIncludedInSealHash(t *testing.T) {
 			name: "extra pass - extra seal ignored",
 			changeHeaderField: func(header *types.Header) *types.Header {
 				h := types.CopyHeader(header)
-				h.Extra = make([]byte, ExtraDataLength)
+				h.Extra = make([]byte, shared.ExtraDataLength)
 				h.Extra[len(h.Extra)-1] = 0x01
 				return h
 			},
@@ -474,9 +475,9 @@ func Test_HeaderFieldsIncludedInSealHash(t *testing.T) {
 			name: "extra fail - vanity changed",
 			changeHeaderField: func(header *types.Header) *types.Header {
 				h := types.CopyHeader(header)
-				h.Extra = make([]byte, ExtraDataLength)
+				h.Extra = make([]byte, shared.ExtraDataLength)
 				h.Extra[0] = 0x01
-				h.Extra[ExtraVanityLength-1] = 0x01
+				h.Extra[shared.ExtraVanityLength-1] = 0x01
 				return h
 			},
 			expectFailure: true,
@@ -485,9 +486,9 @@ func Test_HeaderFieldsIncludedInSealHash(t *testing.T) {
 			name: "extra fail - transcript hash changed",
 			changeHeaderField: func(header *types.Header) *types.Header {
 				h := types.CopyHeader(header)
-				h.Extra = make([]byte, ExtraDataLength)
-				h.Extra[ExtraVanityLength] = 0x01
-				h.Extra[ExtraVanityLength+common.HashLength-1] = 0x01
+				h.Extra = make([]byte, shared.ExtraDataLength)
+				h.Extra[shared.ExtraVanityLength] = 0x01
+				h.Extra[shared.ExtraVanityLength+common.HashLength-1] = 0x01
 				return h
 			},
 			expectFailure: true,
@@ -784,8 +785,8 @@ func Test_Prepare_Happy_Executor(t *testing.T) {
 	assert.Equal(t, header.Nonce, types.BlockNonce{})
 	assert.Equal(t, header.Difficulty, difficultyExecutor)
 	assert.Equal(t, header.MixDigest, common.Hash{})
-	assert.Equal(t, len(header.Extra), ExtraDataLength)
-	assert.Equal(t, header.Extra, make([]byte, ExtraDataLength))
+	assert.Equal(t, len(header.Extra), shared.ExtraDataLength)
+	assert.Equal(t, header.Extra, make([]byte, shared.ExtraDataLength))
 	assert.Equal(t, header.Time, header.Time)
 }
 
@@ -856,7 +857,7 @@ func Test_Seal_Happy(t *testing.T) {
 
 	// We order the signatures by the lexicographical order of address of the
 	// executor accounts.
-	orderSignatures := [NumExecutors][]byte{sigDetails.Signature, sigDetails.Signature}
+	orderSignatures := [shared.NumExecutors][]byte{sigDetails.Signature, sigDetails.Signature}
 	if bytes.Compare(addr1Test[:], peerExecAddress[:]) > 0 {
 		orderSignatures[0] = peerSig
 	} else {
@@ -865,8 +866,8 @@ func Test_Seal_Happy(t *testing.T) {
 
 	// We expect the sealed block to have both signatures (lexicographically ordered) in it's
 	// extra data field.
-	expectedExtra := make([]byte, ExtraDataLength)
-	copy(expectedExtra[len(header.Extra)-(ExtraSeal*NumExecutors):], append(sigDetails.Signature, peerSig...))
+	expectedExtra := make([]byte, shared.ExtraDataLength)
+	copy(expectedExtra[len(header.Extra)-(shared.ExtraSeal*shared.NumExecutors):], append(sigDetails.Signature, peerSig...))
 
 	// Assert:
 	assert.NoError(t, err)
@@ -1506,7 +1507,7 @@ func headerWithTime(timeStamp uint64) *types.Header {
 
 func noDelayBlock(t *testing.T, transcript *types.Transcript) (*types.Block, *types.Header) {
 	header := headerWithTime(uint64(time.Now().Unix()))
-	require.Equal(t, header.Extra, make([]byte, ExtraDataLength))
+	require.Equal(t, header.Extra, make([]byte, shared.ExtraDataLength))
 	return blockWithHeader(header, &types.Transcript{}), header
 }
 
@@ -1579,9 +1580,9 @@ func signedSequencerHeader(t *testing.T, header *types.Header, privkey []byte) *
 }
 
 func populateExtraDataSigners(t *testing.T, extra, sig1, sig2 []byte) []byte {
-	extra, err := InsertIntoExtraData(Signature1, sig1, extra)
+	extra, err := InsertIntoExtraData(shared.Signature1, sig1, extra)
 	require.NoError(t, err)
-	extra, err = InsertIntoExtraData(Signature2, sig2, extra)
+	extra, err = InsertIntoExtraData(shared.Signature2, sig2, extra)
 	require.NoError(t, err)
 	return extra
 }
@@ -1641,21 +1642,21 @@ func fullExecutorBlock(t *testing.T, header, seqHeader *types.Header, pk1, pk2 [
 }
 
 func addSequencerHashToExtraData(t *testing.T, execHeader *types.Header, seqHash common.Hash) {
-	extra, err := InsertIntoExtraData(SequencerBlockHash, seqHash.Bytes(), execHeader.Extra)
+	extra, err := InsertIntoExtraData(shared.SequencerBlockHash, seqHash.Bytes(), execHeader.Extra)
 	require.NoError(t, err)
 	execHeader.Extra = extra
 }
 
 func reverseExtraDataSeals(t *testing.T, block *types.Block) *types.Block {
 	header := block.Header()
-	sig1, err := RetrieveFromExtraData(Signature1, header.Extra)
+	sig1, err := RetrieveFromExtraData(shared.Signature1, header.Extra)
 	require.NoError(t, err)
-	sig2, err := RetrieveFromExtraData(Signature2, header.Extra)
+	sig2, err := RetrieveFromExtraData(shared.Signature2, header.Extra)
 	require.NoError(t, err)
 	// We reverse the order of the signatures
-	extra, err := InsertIntoExtraData(Signature1, sig2, header.Extra)
+	extra, err := InsertIntoExtraData(shared.Signature1, sig2, header.Extra)
 	require.NoError(t, err)
-	extra, err = InsertIntoExtraData(Signature2, sig1, extra)
+	extra, err = InsertIntoExtraData(shared.Signature2, sig1, extra)
 	require.NoError(t, err)
 	header.Extra = extra
 	return block.WithSeal(header)
