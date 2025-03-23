@@ -380,7 +380,7 @@ func initSES(update []byte) {
 	if ret.err != nil {
 		errString := C.GoString(ret.err)
 		C.free(unsafe.Pointer(ret.err))
-		panic("failed to initialize SES")
+		panic(fmt.Errorf("failed to initialize SES: %v", errString))
 	}
 }
 
