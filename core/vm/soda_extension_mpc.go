@@ -310,8 +310,8 @@ var (
 	ErrMPCMaliciousError      = errors.New("MPC execution failed due to malicious error")                // panic
 	ErrMPCHashNotFoundError   = errors.New("MPC hash not found")                                         // revert
 	ErrAllocatingMemory       = errors.New("error allocating memory")                                    // panic
-	ErrRunCalledOnEVMAware    = errors.New("run should not be called on an EVMAwarePrecompiledContract") // panic
-	ErrEVMIsNIL               = errors.New("EVM is nil")                                                 // panic
+	ErrRunCalledOnEVMAware    = errors.New("run should not be called on an EVMAwarePrecompiledContract") // revert
+	ErrEVMIsNIL               = errors.New("EVM is nil")                                                 // revert
 	ErrInvalidCall            = errors.New("invalid call of a precompiled contract in an eth_call")      // panic
 	ErrInvalidExecutionType   = errors.New("invalid execution type")                                     // panic
 	ErrInvalidInputFormat     = errors.New("invalid input format")                                       // revert
