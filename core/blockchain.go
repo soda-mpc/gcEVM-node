@@ -1786,8 +1786,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool) (int, error)
 		vmConfig.Transcript = nil
 		vmConfig.ExecType = nil
 		vmConfig.Header = nil
-		if c, ok := bc.engine.(*co2.Co2); ok {
-			c.ApplyInsertBlockConfiguration(block, &vmConfig)
+		co2Engine, isCo2Engine := bc.engine.(*co2.Co2)
+		if isCo2Engine {
+			co2Engine.ApplyInsertBlockConfiguration(block, &vmConfig)
 		}
 		// If the chain is terminating, stop processing blocks
 		if bc.insertStopped() {
@@ -1858,7 +1859,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool) (int, error)
 		// If we have a followup block, run that against the current state to pre-cache
 		// transactions and probabilistically some of the account/storage trie nodes.
 		var followupInterrupt atomic.Bool
-		if !bc.cacheConfig.TrieCleanNoPrefetch {
+		if !bc.cacheConfig.TrieCleanNoPrefetch && !isCo2Engine {
 			if followup, err := it.peek(); followup != nil && err == nil {
 				throwaway, _ := state.New(parent.Root, bc.stateCache, bc.snaps)
 
