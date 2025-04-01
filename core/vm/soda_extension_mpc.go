@@ -1456,9 +1456,6 @@ func (c *mpcContract) callOffboardToUser(opName string, input []byte, evm *EVM) 
 	var tempArr [VAR_SIZE]byte
 	copy(tempArr[:], encryptedValue)
 
-	// Insert the cipher-text into the validated cipher-text memory
-	insertToAuthenticatedMemory(evm, tempArr)
-
 	return encryptedValue, nil
 }
 
