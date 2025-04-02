@@ -167,6 +167,29 @@ type SigRequestsForBlock struct {
 	RequestedAmount      uint64
 }
 
+type forkName string
+
+var (
+	Hydrogen forkName = "Hydrogen"
+)
+
+type Forks map[forkName]uint64
+
+func populateForks(forksCfg *params.ForksConfig) Forks {
+	forks := make(Forks)
+	if forksCfg != nil {
+		forks[Hydrogen] = forksCfg.Hydrogen
+	}
+
+	return forks
+}
+
+func defaultForks() Forks {
+	return Forks{
+		Hydrogen: 0,
+	}
+}
+
 // Co2 is a consensus engine that combines the eth1 consensus and proof-of-stake
 // algorithm. There is a special flag inside to decide whether to use legacy consensus
 // rules or new rules. The transition rule is described in the eth1/2 merge spec.
@@ -221,6 +244,7 @@ type Co2 struct {
 	RequestSigThreshold uint8
 
 	emissions *params.EmissionsConfig // configuration for coin emissions
+	forks     Forks
 }
 
 func validateNonEmptyEmissionsConfig(emissions *params.EmissionsConfig) error {
@@ -344,7 +368,17 @@ func New(config *params.Co2Config, db ethdb.Database, exec1Addr,
 
 	updateBytes := updateBuffer([]common.Address{first, second, seqAddr})
 
-	initSES(updateBytes)
+	var forks Forks
+	hydrogenBlock := uint64(0)
+	if config.Forks != nil {
+		forks = populateForks(config.Forks)
+		hydrogenBlock = config.Forks.Hydrogen
+	} else {
+		forks = defaultForks()
+	}
+
+	initSES(updateBytes, hydrogenBlock)
+
 	if config.Emissions != nil {
 		if err := validateNonEmptyEmissionsConfig(config.Emissions); err != nil {
 			panic(err)
@@ -368,20 +402,33 @@ func New(config *params.Co2Config, db ethdb.Database, exec1Addr,
 		RequestSigThreshold:       10, // TODO: make this a parameter
 		latestBlockTimestamp:      blockTimestamp{number: common.Big0, timestamp: 0},
 		emissions:                 config.Emissions,
+		forks:                     forks,
 	}
 }
 
-func initSES(update []byte) {
+func initSES(update []byte, hydrogenBlock uint64) {
 	log.Info("Initializing SES")
 	if len(update) >= math.MaxInt32 {
 		panic("update buffer too large")
 	}
-	ret := C.InitSES((*C.uchar)(&update[0]), C.int(len(update)))
+	log.Debug("Hydrogen block", "number", hydrogenBlock)
+	ret := C.InitSES((*C.uchar)(&update[0]), C.int(len(update)), C.uint64_t(hydrogenBlock))
 	if ret.err != nil {
 		errString := C.GoString(ret.err)
 		C.free(unsafe.Pointer(ret.err))
 		panic(fmt.Errorf("failed to initialize SES: %v", errString))
 	}
+}
+
+func (co2 *Co2) IsBlockAfterFork(num uint64, name forkName) bool {
+	f := co2.forks
+	if f == nil {
+		return false
+	}
+	if _, ok := (f)[name]; !ok {
+		return false
+	}
+	return num >= (f)[name]
 }
 
 func (co2 *Co2) GetExecutionState() ExecutionState {
@@ -489,8 +536,16 @@ func (co2 *Co2) RegisterTriggerSyncFunc(fn func()) {
 	co2.triggerSyncFunc = fn
 }
 
-func (co2 *Co2) addTranscriptHashToExtra(extra []byte) ([]byte, error) {
-	hash := co2.transcript.Hash()
+func (co2 *Co2) addTranscriptHashToExtra(extra []byte, blockNum uint64) ([]byte, error) {
+	var hash common.Hash
+	log.Debug("Adding transcript hash to extra data", "blockNum", blockNum, "Transcript length", len(co2.transcript))
+	if co2.IsBlockAfterFork(blockNum, Hydrogen) {
+		hash = co2.transcript.Hash()
+		log.Debug("Post Hydrogen block, using a keccak256 hash", "hash", hash)
+	} else {
+		hash = co2.transcript.Last32Bytes()
+		log.Debug("Pre Hydrogen block, using the last 32 bytes of the transcript", "bytes", hash)
+	}
 	return InsertIntoExtraData(shared.TranscriptHash, hash.Bytes(), extra)
 }
 
@@ -1146,7 +1201,7 @@ func (co2 *Co2) finalize(header *types.Header) error {
 		if err := co2.AddMPCStatusToTranscript(co2.getMPCStatus()); err != nil {
 			return err
 		}
-		extra, err := co2.addTranscriptHashToExtra(header.Extra)
+		extra, err := co2.addTranscriptHashToExtra(header.Extra, header.Number.Uint64())
 		if err != nil {
 			return err
 		}

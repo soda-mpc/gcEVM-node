@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -16,6 +17,16 @@ var (
 
 type Transcript [][]byte
 
+func (t *Transcript) Last32Bytes() common.Hash {
+	// Flatten Transcript into a single []byte slice
+	var flat []byte
+	for _, v := range *t {
+		flat = append(flat, v...)
+	}
+	// return the last 32 bytes of the flat slice
+	return common.BytesToHash(flat)
+}
+
 func (t *Transcript) Hash() common.Hash {
 	// Flatten Transcript into a single []byte slice
 	var flat []byte
@@ -23,7 +34,7 @@ func (t *Transcript) Hash() common.Hash {
 		flat = append(flat, v...)
 	}
 	// Return a hash for the flat slice using keccak256
-	return common.BytesToHash(flat)
+	return crypto.Keccak256Hash(flat)
 }
 
 func (t *Transcript) GetMPCStatus() (*MPCStatus, error) {

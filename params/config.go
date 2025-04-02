@@ -353,6 +353,7 @@ type CliqueConfig struct {
 type Co2Config struct {
 	Period    uint64           `json:"period"`              // Number of seconds between blocks to enforce
 	Emissions *EmissionsConfig `json:"emissions,omitempty"` // Emissions schedule configuration
+	Forks     *ForksConfig     `json:"forks,omitempty"`     // Forks configuration
 }
 
 type EmissionsConfig struct {
@@ -363,6 +364,10 @@ type EmissionsConfig struct {
 	BaseInflation         string         `json:"baseInflation"`         // Initial inflation rate
 	InitialSupply         uint64         `json:"initialSupply"`         // Initial supply of coins
 	DiminishingRate       string         `json:"diminishingRate"`       // Rate of diminishing inflation
+}
+
+type ForksConfig struct {
+	Hydrogen uint64 `json:"hydrogen"` // Block number for the Hydrogen fork
 }
 
 // String implements the stringer interface, returning the consensus engine details.

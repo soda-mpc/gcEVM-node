@@ -801,17 +801,6 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListH
 				if !bytes.Equal(seqHash.Bytes(), expectedSeqHash) {
 					return errInvalidBody
 				}
-				if transcripts[index] != nil {
-					// Validate transcript header hash is in the header
-					transcriptHash := transcripts[index].Hash()
-					expectedTranscriptHash, err := co2.RetrieveFromExtraData(shared.TranscriptHash, header.Extra)
-					if err != nil {
-						return err
-					}
-					if !bytes.Equal(transcriptHash.Bytes(), expectedTranscriptHash) {
-						return errInvalidBody
-					}
-				}
 			}
 		}
 
