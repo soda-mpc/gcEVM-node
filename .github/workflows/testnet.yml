@@ -49,24 +49,16 @@ jobs:
       - name: Build
         run: |
           make geth
-
-      - name: Set workflow name
-        id: set-workflow-name
-        run: |
-          if [ "${{ github.ref_name }}" = "testnet" ]; then
-            echo "WORKFLOW_NAME=testnet" >> $GITHUB_ENV
-          else
-            echo "WORKFLOW_NAME=dev-testnet" >> $GITHUB_ENV
-          fi
         
       - name: Trigger workflow in local devnet repository
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref_name == 'testnet'
         run: |
           curl -X POST \
             --fail \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.LOCAL_DEVNET_WORKFLOW_TRIGGER }}" \
-            https://api.github.com/repos/soda-mpc/local-devnet/actions/workflows/${{ env.WORKFLOW_NAME }}.yml/dispatches
+            https://api.github.com/repos/soda-mpc/local-devnet/actions/workflows/testnet.yml/dispatches \
+            -d '{"ref":"testnet"}'
         shell: /usr/bin/bash -e {0}
         
 
