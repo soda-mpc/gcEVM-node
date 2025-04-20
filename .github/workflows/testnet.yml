@@ -21,6 +21,27 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: 1.21 # or the Go version you are using
+
+      - name: Setup SSH Key for SES
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SES }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+  
+      - name: Update SES inner submodule
+        run: |
+          git submodule update --init ses
+          
+          # Change to the submodule directory and switch to the specified branch
+          cd ses
+          git checkout master
+          git pull
+          go mod tidy
+          CGO_ENABLED=1 go build -buildmode=c-shared -o libses.so main.go
+          sudo mkdir -p /ses_files && sudo chmod 777 /ses_files && cp libses.so libses.h /ses_files/
       
       - name: Download dependencies
         run: go mod download
@@ -39,6 +60,7 @@ jobs:
           fi
         
       - name: Trigger workflow in local devnet repository
+        if: github.event_name == 'push'
         run: |
           curl -X POST \
             --fail \
