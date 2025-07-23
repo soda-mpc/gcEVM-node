@@ -1269,6 +1269,7 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 
 func (w *worker) fillOrderedBlockTxs(txs types.Transactions, env *environment) error {
 	log.Debug("Filling ordered block transactions", "count", len(txs))
+
 	gasLimit := env.header.GasLimit
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(gasLimit)
@@ -1280,29 +1281,29 @@ func (w *worker) fillOrderedBlockTxs(txs types.Transactions, env *environment) e
 	for _, tx := range txs {
 		log.Warn("transaction started")
 		if env.gasPool.Gas() < params.TxGas {
-			log.Warn("Not enough gas for further transactions", "have", env.gasPool, "want", params.TxGas)
+			log.Warn("Not enough gas for further transactions", "have", env.gasPool.Gas(), "want", params.TxGas)
 			// This is a temporary solution, this means the transaction is not included in the Black block even
 			// though it was sequenced as part of the Red block. In the future we should take steps to avoid this
 			// discrepancy.
-			continue
+			break // Cut the black block, do not continue to accept further transactions
 		}
 		// If we don't have enough space for the next transaction, skip the account.
 		if env.gasPool.Gas() < tx.Gas() {
-			log.Warn("Not enough gas left for transaction", "hash", tx.Hash, "left", env.gasPool.Gas(), "needed", tx.Gas)
+			log.Warn("Not enough gas left for transaction", "hash", tx.Hash(), "left", env.gasPool.Gas(), "needed", tx.Gas())
 			// This is a temporary solution, this means the transaction is not included in the Black block even
 			// though it was sequenced as part of the Red block. In the future we should take steps to avoid this
 			// discrepancy.
-			continue
+			break // Cut the black block, do not continue to accept further transactions
 		}
 		if left := uint64(params.MaxBlobGasPerBlock - env.blobs*params.BlobTxBlobGasPerBlob); left < tx.BlobGas() {
-			log.Warn("Not enough blob gas left for transaction", "hash", tx.Hash, "left", left, "needed", tx.BlobGas)
-			continue
+			log.Warn("Not enough blob gas left for transaction", "hash", tx.Hash(), "left", left, "needed", tx.BlobGas())
+			break // Cut the black block, do not continue to accept further transactions
 		}
 
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
 		if tx.Protected() && !w.chainConfig.IsEIP155(env.header.Number) {
-			log.Error("Ignoring replay protected transaction", "hash", tx.Hash, "eip155", w.chainConfig.EIP155Block)
+			log.Error("Ignoring replay protected transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
 			// This remains an error, this transactions should not have been included in the Sequencer's block.
 			return fmt.Errorf("received replay-protected tx in Sequencer's block ignoring replay protected transaction hash: %v eip155: %v", tx.Hash(), w.chainConfig.EIP155Block)
 		}
@@ -1310,12 +1311,19 @@ func (w *worker) fillOrderedBlockTxs(txs types.Transactions, env *environment) e
 		env.state.SetTxContext(tx.Hash(), env.tcount)
 
 		logs, err := w.commitTransaction(env, tx)
+
 		if err != nil {
-			log.Error("Transaction failed", "hash", tx.Hash(), "err", err)
-			return err
+			// For MPC restart error propagate the err (will eventually cause a discard of the work)
+			if errors.Is(err, core.ErrMPCRestartBlock) {
+				log.Error("Transaction failed", "hash", tx.Hash(), "err", err)
+				return err
+			}
+			// If the transaction failed, we don't want to include it in the block, but tthe block should be created
+			log.Warn("Transaction failed", "hash", tx.Hash(), "err", err)
+			break // Cut the black block, do not continue to accept further transactions
 		}
 		subtractedGasPool := env.gasPool.Gas()
-		log.Info("Gas pool after transaction", "tx hash", tx.Hash(), "gas", subtractedGasPool, "transaction required gas", currentGasPool-subtractedGasPool)
+		log.Info("Gas pool after transaction", "tx hash", tx.Hash(), "tx gas", tx.Gas(), "gas", subtractedGasPool, "transaction required gas", currentGasPool-subtractedGasPool)
 		currentGasPool = subtractedGasPool
 
 		// Everything ok, collect the logs and shift in the next transaction from the same account
