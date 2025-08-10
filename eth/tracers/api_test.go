@@ -155,7 +155,7 @@ func (b *testBackend) StateAtBlock(ctx context.Context, block *types.Block, reex
 	return statedb, release, nil
 }
 
-func (b *testBackend) StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (*core.Message, vm.BlockContext, *state.StateDB, StateReleaseFunc, error) {
+func (b *testBackend) StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64, vmConfig *vm.Config) (*core.Message, vm.BlockContext, *state.StateDB, StateReleaseFunc, error) {
 	parent := b.chain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 	if parent == nil {
 		return nil, vm.BlockContext{}, nil, nil, errBlockNotFound
@@ -176,9 +176,20 @@ func (b *testBackend) StateAtTransaction(ctx context.Context, block *types.Block
 		if idx == txIndex {
 			return msg, context, statedb, release, nil
 		}
-		vmenv := vm.NewEVM(context, txContext, statedb, b.chainConfig, vm.Config{})
+		var vmenv *vm.EVM
+		if vmConfig != nil {
+			// Use the provided config (which may include transcript configuration)
+			vmenv = vm.NewEVM(context, txContext, statedb, b.chainConfig, *vmConfig)
+		} else {
+			// Maintain backward compatibility - use default config
+			vmenv = vm.NewEVM(context, txContext, statedb, b.chainConfig, vm.Config{})
+		}
 		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
 			return nil, vm.BlockContext{}, nil, nil, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)
+		}
+		// Update the transcript in vmConfig with the updated transcript from vmenv
+		if vmConfig != nil {
+			vmConfig.Transcript = vmenv.Config.Transcript
 		}
 		statedb.Finalise(vmenv.ChainConfig().IsEIP158(block.Number()))
 	}
