@@ -86,7 +86,7 @@ type Backend interface {
 	Engine() consensus.Engine
 	ChainDb() ethdb.Database
 	StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, readOnly bool, preferDisk bool) (*state.StateDB, StateReleaseFunc, error)
-	StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (*core.Message, vm.BlockContext, *state.StateDB, StateReleaseFunc, error)
+	StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64, vmConfig *vm.Config) (*core.Message, vm.BlockContext, *state.StateDB, StateReleaseFunc, error)
 }
 
 // API is the collection of tracing APIs exposed over the private debugging endpoint.
@@ -97,6 +97,22 @@ type API struct {
 // NewAPI creates a new API definition for the tracing methods of the Ethereum service.
 func NewAPI(backend Backend) *API {
 	return &API{backend: backend}
+}
+
+// createVMConfigWithTranscript creates a vm.Config with transcript if available from the block.
+func (api *API) createVMConfigWithTranscript(block *types.Block) *vm.Config {
+	if block != nil {
+		transcript := block.GetTranscript()
+		if len(transcript) > 0 {
+			execType := vm.TranscriptEvaluation
+			config := vm.Config{
+				ExecType:   &execType,
+				Transcript: transcript,
+			}
+			return &config
+		}
+	}
+	return nil
 }
 
 // chainContext constructs the context reader which is used by the evm for reading
@@ -267,6 +283,8 @@ func (api *API) traceChain(start, end *types.Block, config *TraceConfig, closed 
 					signer   = types.MakeSigner(api.backend.ChainConfig(), task.block.Number(), task.block.Time())
 					blockCtx = core.NewEVMBlockContext(task.block.Header(), api.chainContext(ctx), nil)
 				)
+				// Create vm.Config with transcript if available
+				vmConfig := api.createVMConfigWithTranscript(task.block)
 				// Trace all the transactions contained within
 				for i, tx := range task.block.Transactions() {
 					msg, _ := core.TransactionToMessage(tx, signer, task.block.BaseFee())
@@ -276,7 +294,7 @@ func (api *API) traceChain(start, end *types.Block, config *TraceConfig, closed 
 						TxIndex:     i,
 						TxHash:      tx.Hash(),
 					}
-					res, err := api.traceTx(ctx, msg, txctx, blockCtx, task.statedb, config)
+					res, err := api.traceTx(ctx, msg, txctx, blockCtx, task.statedb, config, task.block, vmConfig)
 					if err != nil {
 						task.results[i] = &txTraceResult{TxHash: tx.Hash(), Error: err.Error()}
 						log.Warn("Tracing failed", "hash", tx.Hash(), "block", task.block.NumberU64(), "err", err)
@@ -602,6 +620,10 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 		signer    = types.MakeSigner(api.backend.ChainConfig(), block.Number(), block.Time())
 		results   = make([]*txTraceResult, len(txs))
 	)
+
+	// Create vm.Config with transcript if available
+	vmConfig := api.createVMConfigWithTranscript(block)
+
 	for i, tx := range txs {
 		// Generate the next state snapshot fast without tracing
 		msg, _ := core.TransactionToMessage(tx, signer, block.BaseFee())
@@ -611,7 +633,7 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 			TxIndex:     i,
 			TxHash:      tx.Hash(),
 		}
-		res, err := api.traceTx(ctx, msg, txctx, blockCtx, statedb, config)
+		res, err := api.traceTx(ctx, msg, txctx, blockCtx, statedb, config, block, vmConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -636,6 +658,10 @@ func (api *API) traceBlockParallel(ctx context.Context, block *types.Block, stat
 		results   = make([]*txTraceResult, len(txs))
 		pend      sync.WaitGroup
 	)
+
+	// Create vm.Config with transcript if available
+	vmConfig := api.createVMConfigWithTranscript(block)
+
 	threads := runtime.NumCPU()
 	if threads > len(txs) {
 		threads = len(txs)
@@ -654,7 +680,7 @@ func (api *API) traceBlockParallel(ctx context.Context, block *types.Block, stat
 					TxIndex:     task.index,
 					TxHash:      txs[task.index].Hash(),
 				}
-				res, err := api.traceTx(ctx, msg, txctx, blockCtx, task.statedb, config)
+				res, err := api.traceTx(ctx, msg, txctx, blockCtx, task.statedb, config, block, vmConfig)
 				if err != nil {
 					results[task.index] = &txTraceResult{TxHash: txs[task.index].Hash(), Error: err.Error()}
 					continue
@@ -680,11 +706,24 @@ txloop:
 		// Generate the next state snapshot fast without tracing
 		msg, _ := core.TransactionToMessage(tx, signer, block.BaseFee())
 		statedb.SetTxContext(tx.Hash(), i)
-		vmenv := vm.NewEVM(blockCtx, core.NewEVMTxContext(msg), statedb, api.backend.ChainConfig(), vm.Config{})
+
+		var vmConf vm.Config
+		if vmConfig != nil {
+			// Use the provided config (which may include transcript configuration)
+			vmConf = *vmConfig
+		}
+
+		vmenv := vm.NewEVM(blockCtx, core.NewEVMTxContext(msg), statedb, api.backend.ChainConfig(), vmConf)
 		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.GasLimit)); err != nil {
 			failed = err
 			break txloop
 		}
+
+		// Update the transcript in vmConfig with the updated transcript from vmenv
+		if vmConfig != nil {
+			vmConfig.Transcript = vmenv.Config.Transcript
+		}
+
 		// Finalize the state so any modifications are written to the trie
 		// Only delete empty objects if EIP158/161 (a.k.a Spurious Dragon) is in effect
 		statedb.Finalise(vmenv.ChainConfig().IsEIP158(block.Number()))
@@ -755,6 +794,9 @@ func (api *API) standardTraceBlockToFile(ctx context.Context, block *types.Block
 		// Note: This copies the config, to not screw up the main config
 		chainConfig, canon = overrideConfig(chainConfig, config.Overrides)
 	}
+
+	// Create vm.Config with transcript if available
+	vmConfig := api.createVMConfigWithTranscript(block)
 	for i, tx := range block.Transactions() {
 		// Prepare the transaction for un-traced execution
 		var (
@@ -786,6 +828,10 @@ func (api *API) standardTraceBlockToFile(ctx context.Context, block *types.Block
 			}
 		}
 		// Execute the transaction and flush any traces to disk
+		if vmConfig != nil {
+			vmConf.ExecType = vmConfig.ExecType
+			vmConf.Transcript = vmConfig.Transcript
+		}
 		vmenv := vm.NewEVM(vmctx, txContext, statedb, chainConfig, vmConf)
 		statedb.SetTxContext(tx.Hash(), i)
 		_, err = core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.GasLimit))
@@ -799,6 +845,12 @@ func (api *API) standardTraceBlockToFile(ctx context.Context, block *types.Block
 		if err != nil {
 			return dumps, err
 		}
+
+		// Update the transcript in vmConfig with the updated transcript from vmenv
+		if vmConfig != nil {
+			vmConfig.Transcript = vmenv.Config.Transcript
+		}
+
 		// Finalize the state so any modifications are written to the trie
 		// Only delete empty objects if EIP158/161 (a.k.a Spurious Dragon) is in effect
 		statedb.Finalise(vmenv.ChainConfig().IsEIP158(block.Number()))
@@ -845,7 +897,12 @@ func (api *API) TraceTransaction(ctx context.Context, hash common.Hash, config *
 	if err != nil {
 		return nil, err
 	}
-	msg, vmctx, statedb, release, err := api.backend.StateAtTransaction(ctx, block, int(index), reexec)
+
+	// Create vm.Config with transcript if available
+	vmConfig := api.createVMConfigWithTranscript(block)
+
+	msg, vmctx, statedb, release, err := api.backend.StateAtTransaction(ctx, block, int(index), reexec, vmConfig)
+	log.Info("vmConfig", "execType", vmConfig.ExecType, "transcript length", len(vmConfig.Transcript))
 	if err != nil {
 		return nil, err
 	}
@@ -857,7 +914,7 @@ func (api *API) TraceTransaction(ctx context.Context, hash common.Hash, config *
 		TxIndex:     int(index),
 		TxHash:      hash,
 	}
-	return api.traceTx(ctx, msg, txctx, vmctx, statedb, config)
+	return api.traceTx(ctx, msg, txctx, vmctx, statedb, config, block, vmConfig)
 }
 
 // TraceCall lets you trace a given eth_call. It collects the structured logs
@@ -916,13 +973,13 @@ func (api *API) TraceCall(ctx context.Context, args ethapi.TransactionArgs, bloc
 	if config != nil {
 		traceConfig = &config.TraceConfig
 	}
-	return api.traceTx(ctx, msg, new(Context), vmctx, statedb, traceConfig)
+	return api.traceTx(ctx, msg, new(Context), vmctx, statedb, traceConfig, block, nil)
 }
 
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
-func (api *API) traceTx(ctx context.Context, message *core.Message, txctx *Context, vmctx vm.BlockContext, statedb *state.StateDB, config *TraceConfig) (interface{}, error) {
+func (api *API) traceTx(ctx context.Context, message *core.Message, txctx *Context, vmctx vm.BlockContext, statedb *state.StateDB, config *TraceConfig, block *types.Block, vmConfig *vm.Config) (interface{}, error) {
 	var (
 		tracer    Tracer
 		err       error
@@ -940,7 +997,24 @@ func (api *API) traceTx(ctx context.Context, message *core.Message, txctx *Conte
 			return nil, err
 		}
 	}
-	vmenv := vm.NewEVM(vmctx, txContext, statedb, api.backend.ChainConfig(), vm.Config{Tracer: tracer, NoBaseFee: true})
+
+	// Set up VM config with transcript if available
+	var vmConf vm.Config
+	vmConf.Tracer = tracer
+	vmConf.NoBaseFee = true
+
+	// Use the passed vmConfig if available, otherwise use default
+	if vmConfig != nil {
+		vmConf.ExecType = vmConfig.ExecType
+		vmConf.Transcript = vmConfig.Transcript
+		log.Info("vmConfig", "execType", vmConfig.ExecType, "transcript length", len(vmConfig.Transcript))
+	} else if block != nil {
+		transcriptType := vm.TranscriptEvaluation
+		vmConf.ExecType = &transcriptType
+		vmConf.Transcript = block.GetTranscript()
+	}
+
+	vmenv := vm.NewEVM(vmctx, txContext, statedb, api.backend.ChainConfig(), vmConf)
 
 	// Define a meaningful timeout of a single transaction trace
 	if config.Timeout != nil {
@@ -963,6 +1037,10 @@ func (api *API) traceTx(ctx context.Context, message *core.Message, txctx *Conte
 	statedb.SetTxContext(txctx.TxHash, txctx.TxIndex)
 	if _, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit)); err != nil {
 		return nil, fmt.Errorf("tracing failed: %w", err)
+	}
+	// Update the vmConfig with the transcript from the vmenv
+	if vmConfig != nil {
+		vmConfig.Transcript = vmenv.Config.Transcript
 	}
 	return tracer.GetResult()
 }

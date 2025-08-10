@@ -1014,7 +1014,11 @@ func (c *mpcContract) EVMAwareRun(input []byte, evm *EVM, caller common.Address,
 	}
 
 	execType := evm.Config.ExecType
-	// Placeholder until the real pre-compiles are added so a different state root is generated
+	if execType == nil {
+		log.Error("Invalid execution type")
+		evm.SetMPCError(ErrInvalidExecutionType)
+		return nil, ErrInvalidExecutionType
+	}
 	if *execType == Sequencing {
 		log.Trace("Execution Type: Sequencing")
 		return c.fakeMPC(signature, false)
