@@ -368,6 +368,7 @@ type EmissionsConfig struct {
 
 type ForksConfig struct {
 	Hydrogen uint64 `json:"hydrogen"` // Block number for the Hydrogen fork
+	Helium   uint64 `json:"helium"`   // Block number for the Helium fork
 }
 
 // String implements the stringer interface, returning the consensus engine details.

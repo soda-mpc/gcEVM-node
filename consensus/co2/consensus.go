@@ -176,6 +176,7 @@ type forkName string
 
 var (
 	Hydrogen forkName = "Hydrogen"
+	Helium   forkName = "Helium"
 )
 
 type Forks map[forkName]uint64
@@ -184,6 +185,7 @@ func populateForks(forksCfg *params.ForksConfig) Forks {
 	forks := make(Forks)
 	if forksCfg != nil {
 		forks[Hydrogen] = forksCfg.Hydrogen
+		forks[Helium] = forksCfg.Helium
 	}
 
 	return forks
@@ -192,6 +194,7 @@ func populateForks(forksCfg *params.ForksConfig) Forks {
 func defaultForks() Forks {
 	return Forks{
 		Hydrogen: 0,
+		Helium:   0,
 	}
 }
 
@@ -435,6 +438,16 @@ func (co2 *Co2) IsBlockAfterFork(num uint64, name forkName) bool {
 		return false
 	}
 	return num >= (f)[name]
+}
+
+// IsBlockAfterHeliumFork is a convenience function to check if a block is after the Helium fork
+func (co2 *Co2) IsBlockAfterHeliumFork(num uint64) bool {
+	return co2.IsBlockAfterFork(num, Helium)
+}
+
+// IsBlockAfterHydrogenFork is a convenience function to check if a block is after the Hydrogen fork
+func (co2 *Co2) IsBlockAfterHydrogenFork(num uint64) bool {
+	return co2.IsBlockAfterFork(num, Hydrogen)
 }
 
 func (co2 *Co2) GetExecutionState() ExecutionState {

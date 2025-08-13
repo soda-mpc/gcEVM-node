@@ -968,6 +968,15 @@ func getMax(nums ...int) int {
 // corresponding operation.
 // The function signatures, such as signatureAdd and others, uniquely define various operations.
 func (c *mpcContract) EVMAwareRun(input []byte, evm *EVM, caller common.Address, addr common.Address) ([]byte, error) {
+
+	// print if after heluim or before helium
+	// TODO: remove this after testing
+	if c.isAfterHeliumFork(evm) {
+		log.Error("After Helium fork")
+	} else {
+		log.Error("Before Helium fork")
+	}
+
 	if evm == nil {
 		log.Error("EVM is nil")
 		return nil, ErrEVMIsNIL
@@ -1616,12 +1625,33 @@ func (c *mpcContract) callOnboard(opName string, inputsNumber int, input []byte,
 	return c.callMPC(opName, inputsNumber, input, metadataSize, hasTypes)
 }
 
+// isAfterHeliumFork checks if the current block is after the Helium fork
+func (c *mpcContract) isAfterHeliumFork(evm *EVM) bool {
+	if evm == nil || evm.Context.BlockNumber == nil {
+		log.Error("Cannot determine Helium fork state - EVM or block number is nil - assuming Helium fork is active")
+		return true
+	}
+
+	// Get the actual block number from EVM context
+	blockNumber := evm.Context.BlockNumber.Uint64()
+
+	// Check if CO2 consensus is configured and if we're after the Helium fork
+	if evm.chainConfig != nil && evm.chainConfig.Co2 != nil && evm.chainConfig.Co2.Forks != nil {
+		heliumForkBlock := evm.chainConfig.Co2.Forks.Helium
+		return blockNumber >= heliumForkBlock
+	}
+
+	// If Forks is not defined, assume Helium fork is active from block 0
+	return true
+}
+
 func (c *mpcContract) callValidateCiphertext(opName string, input []byte, evm *EVM, caller common.Address, addr common.Address) ([]byte, error) {
 	// First check that the call depth is 1, otherwise return an error
 	if evm.depth != 1 {
 		log.Error("CallValidateCiphertext - Invalid call depth")
 		return nil, ErrInavlidCallDepth
 	}
+
 	// Get relevant parms
 	funcSig := evm.funcSig
 	user := evm.Origin

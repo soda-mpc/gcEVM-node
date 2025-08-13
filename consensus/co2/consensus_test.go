@@ -1668,3 +1668,51 @@ func reverseExtraDataSeals(t *testing.T, block *types.Block) *types.Block {
 	header.Extra = extra
 	return block.WithSeal(header)
 }
+
+func Test_HeliumFork_Behavior(t *testing.T) {
+	// Test the Helium fork behavior
+	// Arrange: Create a CO2 engine with Helium fork at block 10
+	config := &params.Co2Config{
+		Period: 5,
+		Forks: &params.ForksConfig{
+			Hydrogen: 5,
+			Helium:   10,
+		},
+	}
+
+	_, _, seqAddress := generateAccountParams()
+	_, _, exec1Address := generateAccountParams()
+	_, _, exec2Address := generateAccountParams()
+
+	engine := New(config, nil, exec1Address, exec2Address, seqAddress, Executor)
+
+	// Test before Helium fork
+	assert.False(t, engine.IsBlockAfterHeliumFork(5))
+	assert.False(t, engine.IsBlockAfterHeliumFork(9))
+
+	// Test at Helium fork
+	assert.True(t, engine.IsBlockAfterHeliumFork(10))
+	assert.True(t, engine.IsBlockAfterHeliumFork(116))
+
+	// Test using the generic fork function
+	assert.False(t, engine.IsBlockAfterFork(5, Helium))
+	assert.True(t, engine.IsBlockAfterFork(10, Helium))
+}
+
+func Test_HeliumFork_DefaultConfig(t *testing.T) {
+	// Test that Helium fork defaults to 0 when not specified
+	config := &params.Co2Config{
+		Period: 5,
+		// Forks not specified, should use defaults
+	}
+
+	_, _, seqAddress := generateAccountParams()
+	_, _, exec1Address := generateAccountParams()
+	_, _, exec2Address := generateAccountParams()
+
+	engine := New(config, nil, exec1Address, exec2Address, seqAddress, Executor)
+
+	// With default config, Helium fork should be at block 0
+	assert.True(t, engine.IsBlockAfterHeliumFork(0))
+	assert.True(t, engine.IsBlockAfterHeliumFork(1))
+}
