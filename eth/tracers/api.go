@@ -67,6 +67,8 @@ const (
 	maximumPendingTraceStates = 128
 )
 
+var ErrTraceRequiresTranscript = errors.New("tracing requires a non-empty transcript")
+
 var errTxNotFound = errors.New("transaction not found")
 
 // StateReleaseFunc is used to deallocate resources held by constructing a
@@ -100,19 +102,20 @@ func NewAPI(backend Backend) *API {
 }
 
 // createVMConfigWithTranscript creates a vm.Config with transcript if available from the block.
-func (api *API) createVMConfigWithTranscript(block *types.Block) *vm.Config {
-	if block != nil {
-		transcript := block.GetTranscript()
-		if len(transcript) > 0 {
-			execType := vm.TranscriptEvaluation
-			config := vm.Config{
-				ExecType:   &execType,
-				Transcript: transcript,
-			}
-			return &config
-		}
+func (api *API) createVMConfigWithTranscript(block *types.Block) (*vm.Config, error) {
+	if block == nil {
+		return nil, ErrTraceRequiresTranscript
 	}
-	return nil
+	tr := block.GetTranscript()
+	if len(tr) == 0 {
+		return nil, ErrTraceRequiresTranscript
+	}
+	execType := vm.TranscriptEvaluation
+	cfg := &vm.Config{
+		ExecType:   &execType,
+		Transcript: tr,
+	}
+	return cfg, nil
 }
 
 // chainContext constructs the context reader which is used by the evm for reading
@@ -283,8 +286,26 @@ func (api *API) traceChain(start, end *types.Block, config *TraceConfig, closed 
 					signer   = types.MakeSigner(api.backend.ChainConfig(), task.block.Number(), task.block.Time())
 					blockCtx = core.NewEVMBlockContext(task.block.Header(), api.chainContext(ctx), nil)
 				)
-				// Create vm.Config with transcript if available
-				vmConfig := api.createVMConfigWithTranscript(task.block)
+
+				// Require transcript for tracing (no fallback)
+				vmConfig, err := api.createVMConfigWithTranscript(task.block)
+				if err != nil {
+					// Report a clear error for each tx in this block, release state, stream result, continue
+					errMsg := "gcEVM tracing requires a non-empty transcript"
+					for i, tx := range task.block.Transactions() {
+						task.results[i] = &txTraceResult{TxHash: tx.Hash(), Error: errMsg}
+					}
+					// Tracing state is used up — release it (state number = block.number-1)
+					tracker.releaseState(task.block.NumberU64()-1, task.release)
+
+					// Stream the result back, then proceed to next task
+					select {
+					case resCh <- task:
+					case <-closed:
+						return
+					}
+					continue
+				}
 				// Trace all the transactions contained within
 				for i, tx := range task.block.Transactions() {
 					msg, _ := core.TransactionToMessage(tx, signer, task.block.BaseFee())
@@ -508,68 +529,6 @@ func (api *API) StandardTraceBlockToFile(ctx context.Context, hash common.Hash, 
 	return api.standardTraceBlockToFile(ctx, block, config)
 }
 
-// IntermediateRoots executes a block (bad- or canon- or side-), and returns a list
-// of intermediate roots: the stateroot after each transaction.
-func (api *API) IntermediateRoots(ctx context.Context, hash common.Hash, config *TraceConfig) ([]common.Hash, error) {
-	block, _ := api.blockByHash(ctx, hash)
-	if block == nil {
-		// Check in the bad blocks
-		block = rawdb.ReadBadBlock(api.backend.ChainDb(), hash)
-	}
-	if block == nil {
-		return nil, fmt.Errorf("block %#x not found", hash)
-	}
-	if block.NumberU64() == 0 {
-		return nil, errors.New("genesis is not traceable")
-	}
-	parent, err := api.blockByNumberAndHash(ctx, rpc.BlockNumber(block.NumberU64()-1), block.ParentHash())
-	if err != nil {
-		return nil, err
-	}
-	reexec := defaultTraceReexec
-	if config != nil && config.Reexec != nil {
-		reexec = *config.Reexec
-	}
-	statedb, release, err := api.backend.StateAtBlock(ctx, parent, reexec, nil, true, false)
-	if err != nil {
-		return nil, err
-	}
-	defer release()
-
-	var (
-		roots              []common.Hash
-		signer             = types.MakeSigner(api.backend.ChainConfig(), block.Number(), block.Time())
-		chainConfig        = api.backend.ChainConfig()
-		vmctx              = core.NewEVMBlockContext(block.Header(), api.chainContext(ctx), nil)
-		deleteEmptyObjects = chainConfig.IsEIP158(block.Number())
-	)
-	for i, tx := range block.Transactions() {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		var (
-			msg, _    = core.TransactionToMessage(tx, signer, block.BaseFee())
-			txContext = core.NewEVMTxContext(msg)
-			vmenv     = vm.NewEVM(vmctx, txContext, statedb, chainConfig, vm.Config{})
-		)
-		statedb.SetTxContext(tx.Hash(), i)
-		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.GasLimit)); err != nil {
-			log.Warn("Tracing intermediate roots did not complete", "txindex", i, "txhash", tx.Hash(), "err", err)
-			// We intentionally don't return the error here: if we do, then the RPC server will not
-			// return the roots. Most likely, the caller already knows that a certain transaction fails to
-			// be included, but still want the intermediate roots that led to that point.
-			// It may happen the tx_N causes an erroneous state, which in turn causes tx_N+M to not be
-			// executable.
-			// N.B: This should never happen while tracing canon blocks, only when tracing bad blocks.
-			return roots, nil
-		}
-		// calling IntermediateRoot will internally call Finalize on the state
-		// so any modifications are written to the trie
-		roots = append(roots, statedb.IntermediateRoot(deleteEmptyObjects))
-	}
-	return roots, nil
-}
-
 // StandardTraceBadBlockToFile dumps the structured logs created during the
 // execution of EVM against a block pulled from the pool of bad ones to the
 // local file system and returns a list of files to the caller.
@@ -621,8 +580,11 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 		results   = make([]*txTraceResult, len(txs))
 	)
 
-	// Create vm.Config with transcript if available
-	vmConfig := api.createVMConfigWithTranscript(block)
+	// Require transcript for tracing (no fallback)
+	vmConfig, err := api.createVMConfigWithTranscript(block)
+	if err != nil {
+		return nil, err
+	}
 
 	for i, tx := range txs {
 		// Generate the next state snapshot fast without tracing
@@ -659,8 +621,11 @@ func (api *API) traceBlockParallel(ctx context.Context, block *types.Block, stat
 		pend      sync.WaitGroup
 	)
 
-	// Create vm.Config with transcript if available
-	vmConfig := api.createVMConfigWithTranscript(block)
+	// Require transcript for tracing (no fallback)
+	vmConfig, err := api.createVMConfigWithTranscript(block)
+	if err != nil {
+		return nil, err
+	}
 
 	threads := runtime.NumCPU()
 	if threads > len(txs) {
@@ -795,8 +760,12 @@ func (api *API) standardTraceBlockToFile(ctx context.Context, block *types.Block
 		chainConfig, canon = overrideConfig(chainConfig, config.Overrides)
 	}
 
-	// Create vm.Config with transcript if available
-	vmConfig := api.createVMConfigWithTranscript(block)
+	// Require transcript for tracing (no fallback)
+	vmConfig, err := api.createVMConfigWithTranscript(block)
+	if err != nil {
+		return nil, err
+	}
+
 	for i, tx := range block.Transactions() {
 		// Prepare the transaction for un-traced execution
 		var (
@@ -899,7 +868,11 @@ func (api *API) TraceTransaction(ctx context.Context, hash common.Hash, config *
 	}
 
 	// Create vm.Config with transcript if available
-	vmConfig := api.createVMConfigWithTranscript(block)
+	// Require transcript for tracing (no fallback)
+	vmConfig, err := api.createVMConfigWithTranscript(block)
+	if err != nil {
+		return nil, err
+	}
 
 	msg, vmctx, statedb, release, err := api.backend.StateAtTransaction(ctx, block, int(index), reexec, vmConfig)
 	log.Info("vmConfig", "execType", vmConfig.ExecType, "transcript length", len(vmConfig.Transcript))
@@ -1003,16 +976,17 @@ func (api *API) traceTx(ctx context.Context, message *core.Message, txctx *Conte
 	vmConf.Tracer = tracer
 	vmConf.NoBaseFee = true
 
-	// Use the passed vmConfig if available, otherwise use default
-	if vmConfig != nil {
-		vmConf.ExecType = vmConfig.ExecType
-		vmConf.Transcript = vmConfig.Transcript
-		log.Info("vmConfig", "execType", vmConfig.ExecType, "transcript length", len(vmConfig.Transcript))
-	} else if block != nil {
-		transcriptType := vm.TranscriptEvaluation
-		vmConf.ExecType = &transcriptType
-		vmConf.Transcript = block.GetTranscript()
+	// Prefer passed vmConfig if valid; otherwise derive from block
+	src := vmConfig
+	if src == nil || src.ExecType == nil || src.Transcript == nil || len(src.Transcript) == 0 {
+		var err error
+		src, err = api.createVMConfigWithTranscript(block)
+		if err != nil { // no transcript → refuse to trace
+			return nil, ErrTraceRequiresTranscript
+		}
 	}
+	vmConf.ExecType = src.ExecType
+	vmConf.Transcript = src.Transcript
 
 	vmenv := vm.NewEVM(vmctx, txContext, statedb, api.backend.ChainConfig(), vmConf)
 
