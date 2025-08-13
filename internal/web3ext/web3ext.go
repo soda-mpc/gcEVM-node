@@ -401,12 +401,7 @@ web3._extend({
 			params: 2,
 			inputFormatter: [null, null]
 		}),
-		new web3._extend.Method({
-			name: 'intermediateRoots',
-			call: 'debug_intermediateRoots',
-			params: 2,
-			inputFormatter: [null, null]
-		}),
+
 		new web3._extend.Method({
 			name: 'standardTraceBlockToFile',
 			call: 'debug_standardTraceBlockToFile',
