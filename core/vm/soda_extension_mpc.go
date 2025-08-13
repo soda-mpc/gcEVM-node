@@ -71,8 +71,11 @@ func makeKeccakSignature(input string) uint32 {
 var (
 	// Function signatures
 	signatureOnboard                = makeKeccakSignature("OnBoard(bytes1,uint256)")
+	signatureOnboard256             = makeKeccakSignature("OnBoard(bytes1,uint256,uint256)") // Added after helium fork
 	signatureOffboard               = makeKeccakSignature("OffBoard(bytes1,uint256)")
+	signatureOffboard256            = makeKeccakSignature("OffBoard256(bytes1,uint256)") // Added after helium fork
 	signatureOffboardToUser         = makeKeccakSignature("OffBoardToUser(bytes1,uint256,bytes)")
+	signatureOffboardToUser256      = makeKeccakSignature("OffBoardToUser256(bytes1,uint256,bytes)") // Added after helium fork
 	signatureSetPublic              = makeKeccakSignature("SetPublic(bytes1,uint256)")
 	signatureAdd                    = makeKeccakSignature("Add(bytes3,uint256,uint256)")
 	signatureCheckedAdd             = makeKeccakSignature("CheckedAdd(bytes3,uint256,uint256)")
@@ -101,6 +104,7 @@ var (
 	signatureTransfer               = makeKeccakSignature("Transfer(bytes4,uint256,uint256,uint256)")
 	signatureGetKey                 = makeKeccakSignature("GetUserKey(bytes)")
 	signatureValidateCiphertext     = makeKeccakSignature("ValidateCiphertext(bytes1,uint256,bytes)")
+	signatureValidateCiphertext256  = makeKeccakSignature("ValidateCiphertext(bytes1,uint256,uint256,bytes)") // Added after helium fork
 	signatureTransferWithAllowance  = makeKeccakSignature("TransferWithAllowance(bytes5,uint256,uint256,uint256,uint256)")
 	signatureRand                   = makeKeccakSignature("Rand(bytes1)")
 	signatureRandBoundedBits        = makeKeccakSignature("RandBoundedBits(bytes1,uint8)")
@@ -130,9 +134,13 @@ var (
 		signatureShl:                    "SHL",
 		signatureShr:                    "SHR",
 		signatureOnboard:                "ONBOARD",
+		signatureOnboard256:             "ONBOARD", // Added after helium fork
 		signatureValidateCiphertext:     "ONBOARD",
+		signatureValidateCiphertext256:  "ONBOARD", // Added after helium fork
 		signatureOffboard:               "OFFBOARD",
+		signatureOffboard256:            "OFFBOARD", // Added after helium fork
 		signatureOffboardToUser:         "OFFBOARD",
+		signatureOffboardToUser256:      "OFFBOARD", // Added after helium fork
 		signatureSetPublic:              "SETPUBLIC",
 		signatureRand:                   "RAND",
 		signatureRandBoundedBits:        "RAND",
@@ -150,137 +158,138 @@ var (
 		signature uint32
 		bits      int
 	}]uint64{
-		{signature: signatureBitAnd, bits: 1}:                  12005,
-		{signature: signatureBitOr, bits: 1}:                   12005,
-		{signature: signatureSetPublic, bits: 1}:               12000,
-		{signature: signatureDecrypt, bits: 1}:                 12000,
-		{signature: signatureBitXor, bits: 1}:                  12000,
-		{signature: signatureMin, bits: 1}:                     12010,
-		{signature: signatureMax, bits: 1}:                     12010,
-		{signature: signatureLt, bits: 1}:                      12005,
-		{signature: signatureGt, bits: 1}:                      12010,
-		{signature: signatureGe, bits: 1}:                      12005,
-		{signature: signatureLe, bits: 1}:                      12010,
-		{signature: signatureEq, bits: 1}:                      12000,
-		{signature: signatureNe, bits: 1}:                      12000,
-		{signature: signatureNot, bits: 1}:                     12000,
-		{signature: signatureMux, bits: 1}:                     12005,
-		{signature: signatureOnboard, bits: 1}:                 47039,
-		{signature: signatureValidateCiphertext, bits: 1}:      47039,
-		{signature: signatureOffboard, bits: 1}:                47039,
-		{signature: signatureOffboardToUser, bits: 1}:          47039,
-		{signature: signatureBitAnd, bits: 8}:                  12040,
-		{signature: signatureBitOr, bits: 8}:                   12042,
-		{signature: signatureSetPublic, bits: 8}:               12000,
-		{signature: signatureDecrypt, bits: 8}:                 12000,
-		{signature: signatureBitXor, bits: 8}:                  12000,
-		{signature: signatureAdd, bits: 8}:                     12037,
-		{signature: signatureCheckedAdd, bits: 8}:              12037,
-		{signature: signatureSub, bits: 8}:                     12080,
-		{signature: signatureCheckedSub, bits: 8}:              12080,
-		{signature: signatureMul, bits: 8}:                     12620,
-		{signature: signatureCheckedMul, bits: 8}:              12620,
-		{signature: signatureDiv, bits: 8}:                     12969,
-		{signature: signatureRem, bits: 8}:                     12969,
-		{signature: signatureMin, bits: 8}:                     12121,
-		{signature: signatureMax, bits: 8}:                     12121,
-		{signature: signatureLt, bits: 8}:                      12080,
-		{signature: signatureGt, bits: 8}:                      12121,
-		{signature: signatureGe, bits: 8}:                      12080,
-		{signature: signatureLe, bits: 8}:                      12122,
-		{signature: signatureEq, bits: 8}:                      12037,
-		{signature: signatureNe, bits: 8}:                      12037,
-		{signature: signatureTransfer, bits: 8}:                12201,
-		{signature: signatureTransferWithAllowance, bits: 8}:   12301,
-		{signature: signatureMux, bits: 8}:                     12041,
-		{signature: signatureOnboard, bits: 8}:                 47039,
-		{signature: signatureValidateCiphertext, bits: 8}:      47039,
-		{signature: signatureOffboard, bits: 8}:                47040,
-		{signature: signatureOffboardToUser, bits: 8}:          47040,
-		{signature: signatureBitAnd, bits: 16}:                 12080,
-		{signature: signatureBitOr, bits: 16}:                  12084,
-		{signature: signatureSetPublic, bits: 16}:              12001,
-		{signature: signatureDecrypt, bits: 16}:                12001,
-		{signature: signatureBitXor, bits: 16}:                 12001,
-		{signature: signatureAdd, bits: 16}:                    12080,
-		{signature: signatureCheckedAdd, bits: 16}:             12080,
-		{signature: signatureSub, bits: 16}:                    12165,
-		{signature: signatureCheckedSub, bits: 16}:             12165,
-		{signature: signatureMul, bits: 16}:                    14571,
-		{signature: signatureCheckedMul, bits: 16}:             14571,
-		{signature: signatureDiv, bits: 16}:                    15960,
-		{signature: signatureRem, bits: 16}:                    15960,
-		{signature: signatureMin, bits: 16}:                    12249,
-		{signature: signatureMax, bits: 16}:                    12249,
-		{signature: signatureLt, bits: 16}:                     12166,
-		{signature: signatureGt, bits: 16}:                     12249,
-		{signature: signatureGe, bits: 16}:                     12165,
-		{signature: signatureLe, bits: 16}:                     12249,
-		{signature: signatureEq, bits: 16}:                     12079,
-		{signature: signatureNe, bits: 16}:                     12079,
-		{signature: signatureTransfer, bits: 16}:               12413,
-		{signature: signatureTransferWithAllowance, bits: 16}:  12619,
-		{signature: signatureMux, bits: 16}:                    12083,
-		{signature: signatureOnboard, bits: 16}:                47039,
-		{signature: signatureValidateCiphertext, bits: 16}:     47039,
-		{signature: signatureOffboard, bits: 16}:               47040,
-		{signature: signatureOffboardToUser, bits: 16}:         47040,
-		{signature: signatureBitAnd, bits: 32}:                 12160,
-		{signature: signatureBitOr, bits: 32}:                  12169,
-		{signature: signatureSetPublic, bits: 32}:              12003,
-		{signature: signatureDecrypt, bits: 32}:                12003,
-		{signature: signatureBitXor, bits: 32}:                 12003,
-		{signature: signatureAdd, bits: 32}:                    12167,
-		{signature: signatureCheckedAdd, bits: 32}:             12167,
-		{signature: signatureSub, bits: 32}:                    12337,
-		{signature: signatureCheckedSub, bits: 32}:             12337,
-		{signature: signatureMul, bits: 32}:                    22467,
-		{signature: signatureCheckedMul, bits: 32}:             22467,
-		{signature: signatureDiv, bits: 32}:                    28009,
-		{signature: signatureRem, bits: 32}:                    28009,
-		{signature: signatureMin, bits: 32}:                    12503,
-		{signature: signatureMax, bits: 32}:                    12503,
-		{signature: signatureLt, bits: 32}:                     12337,
-		{signature: signatureGt, bits: 32}:                     12503,
-		{signature: signatureGe, bits: 32}:                     12337,
-		{signature: signatureLe, bits: 32}:                     12503,
-		{signature: signatureEq, bits: 32}:                     12164,
-		{signature: signatureNe, bits: 32}:                     12164,
-		{signature: signatureTransfer, bits: 32}:               12837,
-		{signature: signatureTransferWithAllowance, bits: 32}:  13255,
-		{signature: signatureMux, bits: 32}:                    12166,
-		{signature: signatureOnboard, bits: 32}:                47039,
-		{signature: signatureValidateCiphertext, bits: 32}:     47039,
-		{signature: signatureOffboard, bits: 32}:               47042,
-		{signature: signatureOffboardToUser, bits: 32}:         47042,
-		{signature: signatureBitAnd, bits: 64}:                 12320,
-		{signature: signatureBitOr, bits: 64}:                  12339,
-		{signature: signatureSetPublic, bits: 64}:              12006,
-		{signature: signatureDecrypt, bits: 64}:                12006,
-		{signature: signatureBitXor, bits: 64}:                 12006,
-		{signature: signatureAdd, bits: 64}:                    12340,
-		{signature: signatureCheckedAdd, bits: 64}:             12340,
-		{signature: signatureSub, bits: 64}:                    12679,
-		{signature: signatureCheckedSub, bits: 64}:             12679,
-		{signature: signatureMul, bits: 64}:                    54233,
-		{signature: signatureCheckedMul, bits: 64}:             54233,
-		{signature: signatureDiv, bits: 64}:                    76377,
-		{signature: signatureRem, bits: 64}:                    76377,
-		{signature: signatureMin, bits: 64}:                    13012,
-		{signature: signatureMax, bits: 64}:                    13012,
-		{signature: signatureLt, bits: 64}:                     12679,
-		{signature: signatureGt, bits: 64}:                     13012,
-		{signature: signatureGe, bits: 64}:                     12679,
-		{signature: signatureLe, bits: 64}:                     13012,
-		{signature: signatureEq, bits: 64}:                     12334,
-		{signature: signatureNe, bits: 64}:                     12334,
-		{signature: signatureTransfer, bits: 64}:               13685,
-		{signature: signatureTransferWithAllowance, bits: 64}:  14527,
-		{signature: signatureMux, bits: 64}:                    12332,
-		{signature: signatureOnboard, bits: 64}:                47039,
-		{signature: signatureValidateCiphertext, bits: 64}:     47039,
-		{signature: signatureOffboard, bits: 64}:               47045,
-		{signature: signatureOffboardToUser, bits: 64}:         47045,
+		{signature: signatureBitAnd, bits: 1}:                 12005,
+		{signature: signatureBitOr, bits: 1}:                  12005,
+		{signature: signatureSetPublic, bits: 1}:              12000,
+		{signature: signatureDecrypt, bits: 1}:                12000,
+		{signature: signatureBitXor, bits: 1}:                 12000,
+		{signature: signatureMin, bits: 1}:                    12010,
+		{signature: signatureMax, bits: 1}:                    12010,
+		{signature: signatureLt, bits: 1}:                     12005,
+		{signature: signatureGt, bits: 1}:                     12010,
+		{signature: signatureGe, bits: 1}:                     12005,
+		{signature: signatureLe, bits: 1}:                     12010,
+		{signature: signatureEq, bits: 1}:                     12000,
+		{signature: signatureNe, bits: 1}:                     12000,
+		{signature: signatureNot, bits: 1}:                    12000,
+		{signature: signatureMux, bits: 1}:                    12005,
+		{signature: signatureOnboard, bits: 1}:                47039,
+		{signature: signatureValidateCiphertext, bits: 1}:     47039,
+		{signature: signatureOffboard, bits: 1}:               47039,
+		{signature: signatureOffboardToUser, bits: 1}:         47039,
+		{signature: signatureBitAnd, bits: 8}:                 12040,
+		{signature: signatureBitOr, bits: 8}:                  12042,
+		{signature: signatureSetPublic, bits: 8}:              12000,
+		{signature: signatureDecrypt, bits: 8}:                12000,
+		{signature: signatureBitXor, bits: 8}:                 12000,
+		{signature: signatureAdd, bits: 8}:                    12037,
+		{signature: signatureCheckedAdd, bits: 8}:             12037,
+		{signature: signatureSub, bits: 8}:                    12080,
+		{signature: signatureCheckedSub, bits: 8}:             12080,
+		{signature: signatureMul, bits: 8}:                    12620,
+		{signature: signatureCheckedMul, bits: 8}:             12620,
+		{signature: signatureDiv, bits: 8}:                    12969,
+		{signature: signatureRem, bits: 8}:                    12969,
+		{signature: signatureMin, bits: 8}:                    12121,
+		{signature: signatureMax, bits: 8}:                    12121,
+		{signature: signatureLt, bits: 8}:                     12080,
+		{signature: signatureGt, bits: 8}:                     12121,
+		{signature: signatureGe, bits: 8}:                     12080,
+		{signature: signatureLe, bits: 8}:                     12122,
+		{signature: signatureEq, bits: 8}:                     12037,
+		{signature: signatureNe, bits: 8}:                     12037,
+		{signature: signatureTransfer, bits: 8}:               12201,
+		{signature: signatureTransferWithAllowance, bits: 8}:  12301,
+		{signature: signatureMux, bits: 8}:                    12041,
+		{signature: signatureOnboard, bits: 8}:                47039,
+		{signature: signatureValidateCiphertext, bits: 8}:     47039,
+		{signature: signatureOffboard, bits: 8}:               47040,
+		{signature: signatureOffboardToUser, bits: 8}:         47040,
+		{signature: signatureBitAnd, bits: 16}:                12080,
+		{signature: signatureBitOr, bits: 16}:                 12084,
+		{signature: signatureSetPublic, bits: 16}:             12001,
+		{signature: signatureDecrypt, bits: 16}:               12001,
+		{signature: signatureBitXor, bits: 16}:                12001,
+		{signature: signatureAdd, bits: 16}:                   12080,
+		{signature: signatureCheckedAdd, bits: 16}:            12080,
+		{signature: signatureSub, bits: 16}:                   12165,
+		{signature: signatureCheckedSub, bits: 16}:            12165,
+		{signature: signatureMul, bits: 16}:                   14571,
+		{signature: signatureCheckedMul, bits: 16}:            14571,
+		{signature: signatureDiv, bits: 16}:                   15960,
+		{signature: signatureRem, bits: 16}:                   15960,
+		{signature: signatureMin, bits: 16}:                   12249,
+		{signature: signatureMax, bits: 16}:                   12249,
+		{signature: signatureLt, bits: 16}:                    12166,
+		{signature: signatureGt, bits: 16}:                    12249,
+		{signature: signatureGe, bits: 16}:                    12165,
+		{signature: signatureLe, bits: 16}:                    12249,
+		{signature: signatureEq, bits: 16}:                    12079,
+		{signature: signatureNe, bits: 16}:                    12079,
+		{signature: signatureTransfer, bits: 16}:              12413,
+		{signature: signatureTransferWithAllowance, bits: 16}: 12619,
+		{signature: signatureMux, bits: 16}:                   12083,
+		{signature: signatureOnboard, bits: 16}:               47039,
+		{signature: signatureValidateCiphertext, bits: 16}:    47039,
+		{signature: signatureOffboard, bits: 16}:              47040,
+		{signature: signatureOffboardToUser, bits: 16}:        47040,
+		{signature: signatureBitAnd, bits: 32}:                12160,
+		{signature: signatureBitOr, bits: 32}:                 12169,
+		{signature: signatureSetPublic, bits: 32}:             12003,
+		{signature: signatureDecrypt, bits: 32}:               12003,
+		{signature: signatureBitXor, bits: 32}:                12003,
+		{signature: signatureAdd, bits: 32}:                   12167,
+		{signature: signatureCheckedAdd, bits: 32}:            12167,
+		{signature: signatureSub, bits: 32}:                   12337,
+		{signature: signatureCheckedSub, bits: 32}:            12337,
+		{signature: signatureMul, bits: 32}:                   22467,
+		{signature: signatureCheckedMul, bits: 32}:            22467,
+		{signature: signatureDiv, bits: 32}:                   28009,
+		{signature: signatureRem, bits: 32}:                   28009,
+		{signature: signatureMin, bits: 32}:                   12503,
+		{signature: signatureMax, bits: 32}:                   12503,
+		{signature: signatureLt, bits: 32}:                    12337,
+		{signature: signatureGt, bits: 32}:                    12503,
+		{signature: signatureGe, bits: 32}:                    12337,
+		{signature: signatureLe, bits: 32}:                    12503,
+		{signature: signatureEq, bits: 32}:                    12164,
+		{signature: signatureNe, bits: 32}:                    12164,
+		{signature: signatureTransfer, bits: 32}:              12837,
+		{signature: signatureTransferWithAllowance, bits: 32}: 13255,
+		{signature: signatureMux, bits: 32}:                   12166,
+		{signature: signatureOnboard, bits: 32}:               47039,
+		{signature: signatureValidateCiphertext, bits: 32}:    47039,
+		{signature: signatureOffboard, bits: 32}:              47042,
+		{signature: signatureOffboardToUser, bits: 32}:        47042,
+		{signature: signatureBitAnd, bits: 64}:                12320,
+		{signature: signatureBitOr, bits: 64}:                 12339,
+		{signature: signatureSetPublic, bits: 64}:             12006,
+		{signature: signatureDecrypt, bits: 64}:               12006,
+		{signature: signatureBitXor, bits: 64}:                12006,
+		{signature: signatureAdd, bits: 64}:                   12340,
+		{signature: signatureCheckedAdd, bits: 64}:            12340,
+		{signature: signatureSub, bits: 64}:                   12679,
+		{signature: signatureCheckedSub, bits: 64}:            12679,
+		{signature: signatureMul, bits: 64}:                   54233,
+		{signature: signatureCheckedMul, bits: 64}:            54233,
+		{signature: signatureDiv, bits: 64}:                   76377,
+		{signature: signatureRem, bits: 64}:                   76377,
+		{signature: signatureMin, bits: 64}:                   13012,
+		{signature: signatureMax, bits: 64}:                   13012,
+		{signature: signatureLt, bits: 64}:                    12679,
+		{signature: signatureGt, bits: 64}:                    13012,
+		{signature: signatureGe, bits: 64}:                    12679,
+		{signature: signatureLe, bits: 64}:                    13012,
+		{signature: signatureEq, bits: 64}:                    12334,
+		{signature: signatureNe, bits: 64}:                    12334,
+		{signature: signatureTransfer, bits: 64}:              13685,
+		{signature: signatureTransferWithAllowance, bits: 64}: 14527,
+		{signature: signatureMux, bits: 64}:                   12332,
+		{signature: signatureOnboard, bits: 64}:               47039,
+		{signature: signatureValidateCiphertext, bits: 64}:    47039,
+		{signature: signatureOffboard, bits: 64}:              47045,
+		{signature: signatureOffboardToUser, bits: 64}:        47045,
+		// All 128/256 bit operations are added after helium fork
 		{signature: signatureBitAnd, bits: 128}:                12320,
 		{signature: signatureBitOr, bits: 128}:                 12339,
 		{signature: signatureSetPublic, bits: 128}:             12006,
@@ -309,6 +318,34 @@ var (
 		{signature: signatureValidateCiphertext, bits: 128}:    47039,
 		{signature: signatureOffboard, bits: 128}:              47045,
 		{signature: signatureOffboardToUser, bits: 128}:        47045,
+		{signature: signatureBitAnd, bits: 256}:                12320,
+		{signature: signatureBitOr, bits: 256}:                 12339,
+		{signature: signatureSetPublic, bits: 256}:             12006,
+		{signature: signatureDecrypt, bits: 256}:               12006,
+		{signature: signatureBitXor, bits: 256}:                12006,
+		{signature: signatureAdd, bits: 256}:                   12340,
+		{signature: signatureCheckedAdd, bits: 256}:            12340,
+		{signature: signatureSub, bits: 256}:                   12679,
+		{signature: signatureCheckedSub, bits: 256}:            12679,
+		{signature: signatureMul, bits: 256}:                   54233,
+		{signature: signatureCheckedMul, bits: 256}:            54233,
+		{signature: signatureDiv, bits: 256}:                   76377,
+		{signature: signatureRem, bits: 256}:                   76377,
+		{signature: signatureMin, bits: 256}:                   13012,
+		{signature: signatureMax, bits: 256}:                   13012,
+		{signature: signatureLt, bits: 256}:                    12679,
+		{signature: signatureGt, bits: 256}:                    13012,
+		{signature: signatureGe, bits: 256}:                    12679,
+		{signature: signatureLe, bits: 256}:                    13012,
+		{signature: signatureEq, bits: 256}:                    12334,
+		{signature: signatureNe, bits: 256}:                    12334,
+		{signature: signatureTransfer, bits: 256}:              13685,
+		{signature: signatureTransferWithAllowance, bits: 256}: 14527,
+		{signature: signatureMux, bits: 256}:                   12332,
+		{signature: signatureOnboard256, bits: 256}:            47039,
+		{signature: signatureValidateCiphertext256, bits: 256}: 47039,
+		{signature: signatureOffboard256, bits: 256}:           47045,
+		{signature: signatureOffboardToUser256, bits: 256}:     47045,
 		{signature: signatureGetKey}:                           47039,
 		{signature: signatureShl, bits: 8}:                     12620,
 		{signature: signatureShl, bits: 16}:                    14571,
@@ -423,12 +460,14 @@ const (
 )
 
 const (
-	SBOOL_T    = iota // 1-bits size parameter
-	SUINT8_T          // 8-bits size parameter
-	SUINT16_T         // 16-bits size parameter
-	SUINT32_T         // 32-bits size parameter
-	SUINT64_T         // 64-bits size parameter
-	SUINT128_T        // 128-bits size parameter
+	SBOOL_T   = iota // 1-bits size parameter
+	SUINT8_T         // 8-bits size parameter
+	SUINT16_T        // 16-bits size parameter
+	SUINT32_T        // 32-bits size parameter
+	SUINT64_T        // 64-bits size parameter
+	// Added after helium fork
+	SUINT128_T // 128-bits size parameter
+	SUINT256_T // 256-bits size parameter
 )
 
 const MESSAGE_PREFIX = "\u0019Ethereum Signed Message:\n"
@@ -706,7 +745,8 @@ func validateArguments(opName string, parametersBitSize []uint32, numInputs int,
 	var HasBoolParameter bool = false
 	var hasIntParameter bool = false
 	for i := 0; i < numParametersBitSize; i++ {
-		if parametersBitSize[i] != 1 && parametersBitSize[i] != 8 && parametersBitSize[i] != 16 && parametersBitSize[i] != 32 && parametersBitSize[i] != 64 && parametersBitSize[i] != 128 {
+		if parametersBitSize[i] != 1 && parametersBitSize[i] != 8 && parametersBitSize[i] != 16 && parametersBitSize[i] != 32 &&
+			parametersBitSize[i] != 64 && parametersBitSize[i] != 128 && parametersBitSize[i] != 256 { // 128/256 added after helium fork
 			log.Error("ValidateArguments - invalid parameter bit size", "index", i)
 			return false
 		}
@@ -823,8 +863,11 @@ func getSize(size byte) (int, error) {
 		return 32, nil
 	case SUINT64_T:
 		return 64, nil
+	// SUINT128_T and SUINT256_T added after helium fork
 	case SUINT128_T:
 		return 128, nil
+	case SUINT256_T:
+		return 256, nil
 	default:
 		return -1, ErrInvalidArgument // Impossible result
 	}
@@ -853,9 +896,15 @@ func getSignatureAndBits(input []byte) signatureAndBits {
 	switch signature {
 	case signatureOnboard:
 		requiredBits, err = getSize(input[FUNC_SIG_SIZE])
+	case signatureOnboard256: // Added after helium fork
+		requiredBits, err = getSize(input[FUNC_SIG_SIZE])
 	case signatureOffboard:
 		requiredBits, err = getSize(input[FUNC_SIG_SIZE])
+	case signatureOffboard256: // Added after helium fork
+		requiredBits, err = getSize(input[FUNC_SIG_SIZE])
 	case signatureOffboardToUser:
+		requiredBits, err = getSize(input[FUNC_SIG_SIZE])
+	case signatureOffboardToUser256: // Added after helium fork
 		requiredBits, err = getSize(input[FUNC_SIG_SIZE])
 	case signatureSetPublic:
 		requiredBits, err = getSize(input[FUNC_SIG_SIZE])
@@ -868,6 +917,8 @@ func getSignatureAndBits(input []byte) signatureAndBits {
 	case signatureNot:
 		requiredBits, err = getSize(input[FUNC_SIG_SIZE])
 	case signatureValidateCiphertext:
+		requiredBits, err = getSize(input[FUNC_SIG_SIZE])
+	case signatureValidateCiphertext256: // Added after helium fork
 		requiredBits, err = getSize(input[FUNC_SIG_SIZE])
 	case signatureMux:
 		bits1, err1 := getSize(input[FUNC_SIG_SIZE])
@@ -940,6 +991,12 @@ func (c *mpcContract) isSupportedOperation(input []byte) bool {
 
 	// If the operation is in the requiredGasMap, it is supported
 	if _, ok := requiredGasMap[key]; ok {
+
+		// TODO: Uncomment this in the next PR when the fork implementation is added
+		// if key.bits >= 128 { // && before helium
+		// 	log.Error("Operation not supported", "signature", key.signature, "bits", key.bits)
+		// 	return false
+		// }
 		return true
 	}
 
@@ -1055,10 +1112,22 @@ func (c *mpcContract) EVMAwareRun(input []byte, evm *EVM, caller common.Address,
 		// To ensure consistency across all involved parties, including executors and the sequencer,
 		// the ciphertext must be added to the sequencer's authenticated memory, mirroring the action taken by the executors.
 		if signature == signatureOffboard || signature == signatureOffboardToUser {
-			var tempArr [32]byte
+			var tempArr [VAR_SIZE]byte
 			copy(tempArr[:], output)
 
 			// Insert the cipher-text into the validated cipher-text memory
+			insertToAuthenticatedMemory(evm, tempArr)
+		}
+		// Added after helium fork
+		// Offboard with 256 bits returns two 128 bit ciphertexts, insert both into the authenticated memory
+		if signature == signatureOffboard256 || signature == signatureOffboardToUser256 {
+			var tempArr [VAR_SIZE]byte
+			copy(tempArr[:], output[:VAR_SIZE])
+			// Insert the first cipher-text into the validated cipher-text memory
+			insertToAuthenticatedMemory(evm, tempArr)
+
+			copy(tempArr[:], output[VAR_SIZE:])
+			// Insert the second cipher-text into the validated cipher-text memory
 			insertToAuthenticatedMemory(evm, tempArr)
 		}
 		return output, nil
@@ -1078,13 +1147,17 @@ func (c *mpcContract) EVMAwareRun(input []byte, evm *EVM, caller common.Address,
 
 		switch signature {
 		case signatureOnboard:
-			inputsNumber = 1
-			output, err = c.callOnboard(opName, inputsNumber, input[FUNC_SIG_SIZE:], UNIRY_MD_SIZE, false, evm)
+			output, err = c.callOnboard(opName, input[FUNC_SIG_SIZE:], UNIRY_MD_SIZE, false, evm, false)
+		case signatureOnboard256: // Added after helium fork
+			output, err = c.callOnboard(opName, input[FUNC_SIG_SIZE:], UNIRY_MD_SIZE, false, evm, true)
 		case signatureOffboard:
-			inputsNumber = 1
-			output, err = c.callOffboard(opName, inputsNumber, input[FUNC_SIG_SIZE:], UNIRY_MD_SIZE, false, evm)
+			output, err = c.callOffboard(opName, input[FUNC_SIG_SIZE:], UNIRY_MD_SIZE, false, evm, false)
+		case signatureOffboard256: // Added after helium fork
+			output, err = c.callOffboard(opName, input[FUNC_SIG_SIZE:], UNIRY_MD_SIZE, false, evm, true)
 		case signatureOffboardToUser:
-			output, err = c.callOffboardToUser(opName, input[FUNC_SIG_SIZE:], evm)
+			output, err = c.callOffboardToUser(opName, input[FUNC_SIG_SIZE:], evm, false)
+		case signatureOffboardToUser256: // Added after helium fork
+			output, err = c.callOffboardToUser(opName, input[FUNC_SIG_SIZE:], evm, true)
 		case signatureSetPublic:
 			inputsNumber = 1
 			output, err = c.callMPC(opName, inputsNumber, input[FUNC_SIG_SIZE:], UNIRY_MD_SIZE, false)
@@ -1102,7 +1175,9 @@ func (c *mpcContract) EVMAwareRun(input []byte, evm *EVM, caller common.Address,
 			inputsNumber = 1
 			output, err = c.callMPC(opName, inputsNumber, input[FUNC_SIG_SIZE:], UNIRY_MD_SIZE, false)
 		case signatureValidateCiphertext:
-			output, err = c.callValidateCiphertext(opName, input[FUNC_SIG_SIZE:], evm, caller, addr)
+			output, err = c.callValidateCiphertext(opName, input[FUNC_SIG_SIZE:], evm, caller, addr, false)
+		case signatureValidateCiphertext256: // Added after helium fork
+			output, err = c.callValidateCiphertext(opName, input[FUNC_SIG_SIZE:], evm, caller, addr, true)
 		case signatureTransfer:
 			inputsNumber = 3
 			output, err = c.callMPC(opName, inputsNumber, input[FUNC_SIG_SIZE:], TRANSFER_MD_SIZE, true)
@@ -1433,7 +1508,8 @@ func (c *mpcContract) callRand(opName string, input []byte) ([]byte, error) {
 	return output, err
 }
 
-func (c *mpcContract) callOffboardToUser(opName string, input []byte, evm *EVM) ([]byte, error) {
+// is256 boolean parameter added after helium fork
+func (c *mpcContract) callOffboardToUser(opName string, input []byte, evm *EVM, is256 bool) ([]byte, error) {
 	var encryptedValue []byte
 
 	inputsNumber := 2
@@ -1472,10 +1548,16 @@ func (c *mpcContract) callOffboardToUser(opName string, input []byte, evm *EVM) 
 	}
 
 	var tempArr [VAR_SIZE]byte
-	copy(tempArr[:], encryptedValue)
+	copy(tempArr[:], encryptedValue[:VAR_SIZE])
 
 	// Insert the cipher-text into the validated cipher-text memory
 	insertToAuthenticatedMemory(evm, tempArr)
+
+	// In case of 256 bit, the output contains two 128 bit ciphertexts, insert the second one as well to the authenticated memory
+	if is256 {
+		copy(tempArr[:], encryptedValue[VAR_SIZE:])
+		insertToAuthenticatedMemory(evm, tempArr)
+	}
 
 	return encryptedValue, nil
 }
@@ -1606,7 +1688,8 @@ func fromEVMBytes(input []byte) ([]byte, error) {
 	return buf, nil
 }
 
-func (c *mpcContract) callOnboard(opName string, inputsNumber int, input []byte, metadataSize int, hasTypes bool, evm *EVM) ([]byte, error) {
+// is256 boolean parameter added after helium fork
+func (c *mpcContract) callOnboard(opName string, input []byte, metadataSize int, hasTypes bool, evm *EVM, is256 bool) ([]byte, error) {
 	if len(input) < METADATA_SIZE+VAR_SIZE {
 		log.Error("CallOnboard - Invalid input format")
 		return nil, ErrInvalidInputFormat
@@ -1622,7 +1705,39 @@ func (c *mpcContract) callOnboard(opName string, inputsNumber int, input []byte,
 		return nil, ErrInvalidCT
 	}
 
-	return c.callMPC(opName, inputsNumber, input, metadataSize, hasTypes)
+	// In case of 256 bit, the input contains two 128 bit ciphertexts, check the second one as well
+	if is256 {
+		if len(input) < METADATA_SIZE+2*VAR_SIZE {
+			log.Error("CallOnboard - Invalid input format")
+			return nil, ErrInvalidInputFormat
+		}
+
+		encryptedValue2 := input[METADATA_SIZE+VAR_SIZE : METADATA_SIZE+2*VAR_SIZE]
+
+		copy(tempArr[:], encryptedValue2)
+		if !isValidInAuthenticatedMemory(evm, [VAR_SIZE]byte(tempArr)) {
+			log.Error("CallOnboard256 - Invalid cipher-text")
+			return nil, ErrInvalidCT
+		}
+
+		encryptedValue = append(encryptedValue, encryptedValue2...)
+	}
+
+	size, err := getSize(input[0])
+	if err != nil {
+		log.Error("Error getting input size", "err", err)
+		return nil, err
+	}
+	inputSizes := []uint32{uint32(size)}
+
+	inputValues := make([][]byte, 1)
+
+	inputValues[0] = encryptedValue
+
+	// Call the MPC server to run the opcode
+	output, err := runOpcode(opName, inputSizes, 1, 0, inputValues)
+
+	return output, err
 }
 
 // isAfterHeliumFork checks if the current block is after the Helium fork
@@ -1645,26 +1760,39 @@ func (c *mpcContract) isAfterHeliumFork(evm *EVM) bool {
 	return true
 }
 
-func (c *mpcContract) callValidateCiphertext(opName string, input []byte, evm *EVM, caller common.Address, addr common.Address) ([]byte, error) {
+// is256 boolean parameter added after helium fork
+func (c *mpcContract) callValidateCiphertext(opName string, input []byte, evm *EVM, caller common.Address, addr common.Address, is256 bool) ([]byte, error) {
 	// First check that the call depth is 1, otherwise return an error
 	if evm.depth != 1 {
 		log.Error("CallValidateCiphertext - Invalid call depth")
 		return nil, ErrInavlidCallDepth
 	}
-
 	// Get relevant parms
 	funcSig := evm.funcSig
 	user := evm.Origin
 
-	if len(input) != METADATA_SIZE+VAR_SIZE+EVM_BYTES_PREFIX_SIZE+SIGNATURE_SIZE+SIGNATURE_PADDING_SIZE {
-		log.Error("CallValidateCiphertext - Invalid input format")
-		return nil, ErrInvalidInputFormat
+	if is256 {
+		if len(input) != METADATA_SIZE+2*VAR_SIZE+EVM_BYTES_PREFIX_SIZE+SIGNATURE_SIZE+SIGNATURE_PADDING_SIZE {
+			log.Error("CallValidateCiphertext256 - Invalid input format")
+			return nil, ErrInvalidInputFormat
+		}
+	} else {
+		if len(input) != METADATA_SIZE+VAR_SIZE+EVM_BYTES_PREFIX_SIZE+SIGNATURE_SIZE+SIGNATURE_PADDING_SIZE {
+			log.Error("CallValidateCiphertext - Invalid input format")
+			return nil, ErrInvalidInputFormat
+		}
 	}
 
 	// Get the ciphertext
 	ct := input[METADATA_SIZE : METADATA_SIZE+VAR_SIZE]
+	addresssIndex := METADATA_SIZE + VAR_SIZE
+	if is256 {
+		ct2 := input[METADATA_SIZE+VAR_SIZE : METADATA_SIZE+2*VAR_SIZE]
+		ct = append(ct, ct2...)
+		addresssIndex += VAR_SIZE
+	}
 
-	signature := input[METADATA_SIZE+VAR_SIZE+EVM_BYTES_PREFIX_SIZE : METADATA_SIZE+VAR_SIZE+EVM_BYTES_PREFIX_SIZE+SIGNATURE_SIZE]
+	signature := input[addresssIndex+EVM_BYTES_PREFIX_SIZE : addresssIndex+EVM_BYTES_PREFIX_SIZE+SIGNATURE_SIZE]
 
 	// The signature for input-text is of user+contractAddr+funcSig+ct, verify the signature
 	// For these specific aruments provided as a message to the signature
@@ -1674,7 +1802,7 @@ func (c *mpcContract) callValidateCiphertext(opName string, input []byte, evm *E
 	}
 
 	// Onboard the ciphertext
-	output, err := c.callOnboardIT(opName, input, evm)
+	output, err := c.callOnboardIT(opName, input, evm, is256)
 	if err != nil {
 		log.Error("Error onboarding ciphertext", "err", err)
 		return nil, err
@@ -1683,7 +1811,8 @@ func (c *mpcContract) callValidateCiphertext(opName string, input []byte, evm *E
 	return output, nil
 }
 
-func (c *mpcContract) callOnboardIT(opName string, input []byte, evm *EVM) ([]byte, error) {
+// is256 boolean parameter added after helium fork
+func (c *mpcContract) callOnboardIT(opName string, input []byte, evm *EVM, is256 bool) ([]byte, error) {
 	log.Trace("***********************", opName, "IT ***********************")
 	inputsNumber := 2
 
@@ -1698,6 +1827,11 @@ func (c *mpcContract) callOnboardIT(opName string, input []byte, evm *EVM) ([]by
 
 	// Set the pointer in the array to the input and address
 	encryptedValue := input[METADATA_SIZE : METADATA_SIZE+VAR_SIZE]
+	if is256 {
+		encryptedValue2 := input[METADATA_SIZE+VAR_SIZE : METADATA_SIZE+2*VAR_SIZE]
+		encryptedValue = append(encryptedValue, encryptedValue2...)
+	}
+
 	address := evm.Origin.Bytes()
 
 	inputValues[0] = encryptedValue
@@ -1709,22 +1843,30 @@ func (c *mpcContract) callOnboardIT(opName string, input []byte, evm *EVM) ([]by
 	return output, err
 }
 
-func (c *mpcContract) callOffboard(opName string, inputsNumber int, input []byte, metadataSize int, hasTypes bool, evm *EVM) ([]byte, error) {
+// is256 boolean parameter added after helium fork
+func (c *mpcContract) callOffboard(opName string, input []byte, metadataSize int, hasTypes bool, evm *EVM, is256 bool) ([]byte, error) {
 	var encryptedValue []byte
 	var err error
 	// In gas estimation we need not do any encryption
 
-	encryptedValue, err = c.callMPC(opName, inputsNumber, input, metadataSize, hasTypes)
+	encryptedValue, err = c.callMPC(opName, 1, input, metadataSize, hasTypes)
 	if err != nil {
 		log.Error("Error calling MPC", "err", err)
 		return nil, err
 	}
 
 	var tempArr [VAR_SIZE]byte
-	copy(tempArr[:], encryptedValue)
+	copy(tempArr[:], encryptedValue[:VAR_SIZE])
 
 	// Insert the cipher-text into the validated cipher-text memory
 	insertToAuthenticatedMemory(evm, tempArr)
+
+	// In case of 256 bit, the output contains two 128 bit ciphertexts, insert the second one as well to the authenticated memory
+	if is256 {
+		copy(tempArr[:], encryptedValue[VAR_SIZE:])
+		// Insert the second ciphertext into the validated cipher-text memory
+		insertToAuthenticatedMemory(evm, tempArr)
+	}
 
 	return encryptedValue, nil
 }
