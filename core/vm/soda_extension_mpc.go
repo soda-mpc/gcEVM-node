@@ -1237,15 +1237,15 @@ func (c *mpcContract) fakeMPC(signature uint32, isGasEstimated bool) ([]byte, er
 
 	case signatureSHA256Fixed432BitInput, signatureGetKey:
 		// Simulate the RSA encryption output
-		temp := val.FillBytes(make([]byte, c.getMPCOutputSize(opName)))
+		temp := val.FillBytes(make([]byte, c.getMPCOutputSize(opName, signature)))
 		// Convert to evm bytes
 		return toEVMBytes(temp), nil
 	default: // A binary operation
-		return val.FillBytes(make([]byte, c.getMPCOutputSize(opName))), nil
+		return val.FillBytes(make([]byte, c.getMPCOutputSize(opName, signature))), nil
 	}
 }
 
-func (c *mpcContract) getMPCOutputSize(opName string) int {
+func (c *mpcContract) getMPCOutputSize(opName string, signature uint32) int {
 	var outputSize int
 	switch opName {
 
@@ -1263,6 +1263,12 @@ func (c *mpcContract) getMPCOutputSize(opName string) int {
 		outputSize = VAR_SIZE * 2 // Sub with overflow bit returns two gt's - the output value and the overflow bit
 	case "MULWITHOVERFLOWBIT":
 		outputSize = VAR_SIZE * 2 // Multiply with overflow bit returns two gt's - the output value and the overflow bit
+	case "OFFBOARD":
+		if signature == signatureOffboard256 || signature == signatureOffboardToUser256 {
+			outputSize = VAR_SIZE * 2
+		} else {
+			outputSize = VAR_SIZE
+		}
 	default: // A binary operation
 		outputSize = VAR_SIZE
 	}
