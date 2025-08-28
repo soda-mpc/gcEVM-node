@@ -374,6 +374,163 @@ var (
 		{signature: signatureRandBoundedBits, bits: 256}:       6000,
 		{signature: signatureSHA256Fixed432BitInput}:           120000,
 	}
+
+	// This map is used to get the required gas for operations before the Helium fork
+	requiredGasMapBeforeHeliumFork = map[struct {
+		signature uint32
+		bits      int
+	}]uint64{
+		{signature: signatureBitAnd, bits: 1}:                 12005,
+		{signature: signatureBitOr, bits: 1}:                  12005,
+		{signature: signatureSetPublic, bits: 1}:              12000,
+		{signature: signatureDecrypt, bits: 1}:                12000,
+		{signature: signatureBitXor, bits: 1}:                 12000,
+		{signature: signatureMin, bits: 1}:                    12010,
+		{signature: signatureMax, bits: 1}:                    12010,
+		{signature: signatureLt, bits: 1}:                     12005,
+		{signature: signatureGt, bits: 1}:                     12010,
+		{signature: signatureGe, bits: 1}:                     12005,
+		{signature: signatureLe, bits: 1}:                     12010,
+		{signature: signatureEq, bits: 1}:                     12000,
+		{signature: signatureNe, bits: 1}:                     12000,
+		{signature: signatureNot, bits: 1}:                    12000,
+		{signature: signatureMux, bits: 1}:                    12005,
+		{signature: signatureOnboard, bits: 1}:                47039,
+		{signature: signatureValidateCiphertext, bits: 1}:     47039,
+		{signature: signatureOffboard, bits: 1}:               47039,
+		{signature: signatureOffboardToUser, bits: 1}:         47039,
+		{signature: signatureBitAnd, bits: 8}:                 12040,
+		{signature: signatureBitOr, bits: 8}:                  12042,
+		{signature: signatureSetPublic, bits: 8}:              12000,
+		{signature: signatureDecrypt, bits: 8}:                12000,
+		{signature: signatureBitXor, bits: 8}:                 12000,
+		{signature: signatureAdd, bits: 8}:                    12037,
+		{signature: signatureCheckedAdd, bits: 8}:             12037,
+		{signature: signatureSub, bits: 8}:                    12080,
+		{signature: signatureCheckedSub, bits: 8}:             12080,
+		{signature: signatureMul, bits: 8}:                    12620,
+		{signature: signatureCheckedMul, bits: 8}:             12620,
+		{signature: signatureDiv, bits: 8}:                    12969,
+		{signature: signatureRem, bits: 8}:                    12969,
+		{signature: signatureMin, bits: 8}:                    12121,
+		{signature: signatureMax, bits: 8}:                    12121,
+		{signature: signatureLt, bits: 8}:                     12080,
+		{signature: signatureGt, bits: 8}:                     12121,
+		{signature: signatureGe, bits: 8}:                     12080,
+		{signature: signatureLe, bits: 8}:                     12122,
+		{signature: signatureEq, bits: 8}:                     12037,
+		{signature: signatureNe, bits: 8}:                     12037,
+		{signature: signatureTransfer, bits: 8}:               12201,
+		{signature: signatureTransferWithAllowance, bits: 8}:  12301,
+		{signature: signatureMux, bits: 8}:                    12041,
+		{signature: signatureOnboard, bits: 8}:                47039,
+		{signature: signatureValidateCiphertext, bits: 8}:     47039,
+		{signature: signatureOffboard, bits: 8}:               47040,
+		{signature: signatureOffboardToUser, bits: 8}:         47040,
+		{signature: signatureBitAnd, bits: 16}:                12080,
+		{signature: signatureBitOr, bits: 16}:                 12084,
+		{signature: signatureSetPublic, bits: 16}:             12001,
+		{signature: signatureDecrypt, bits: 16}:               12001,
+		{signature: signatureBitXor, bits: 16}:                12001,
+		{signature: signatureAdd, bits: 16}:                   12080,
+		{signature: signatureCheckedAdd, bits: 16}:            12080,
+		{signature: signatureSub, bits: 16}:                   12165,
+		{signature: signatureCheckedSub, bits: 16}:            12165,
+		{signature: signatureMul, bits: 16}:                   14571,
+		{signature: signatureCheckedMul, bits: 16}:            14571,
+		{signature: signatureDiv, bits: 16}:                   15960,
+		{signature: signatureRem, bits: 16}:                   15960,
+		{signature: signatureMin, bits: 16}:                   12249,
+		{signature: signatureMax, bits: 16}:                   12249,
+		{signature: signatureLt, bits: 16}:                    12166,
+		{signature: signatureGt, bits: 16}:                    12249,
+		{signature: signatureGe, bits: 16}:                    12165,
+		{signature: signatureLe, bits: 16}:                    12249,
+		{signature: signatureEq, bits: 16}:                    12079,
+		{signature: signatureNe, bits: 16}:                    12079,
+		{signature: signatureTransfer, bits: 16}:              12413,
+		{signature: signatureTransferWithAllowance, bits: 16}: 12619,
+		{signature: signatureMux, bits: 16}:                   12083,
+		{signature: signatureOnboard, bits: 16}:               47039,
+		{signature: signatureValidateCiphertext, bits: 16}:    47039,
+		{signature: signatureOffboard, bits: 16}:              47040,
+		{signature: signatureOffboardToUser, bits: 16}:        47040,
+		{signature: signatureBitAnd, bits: 32}:                12160,
+		{signature: signatureBitOr, bits: 32}:                 12169,
+		{signature: signatureSetPublic, bits: 32}:             12003,
+		{signature: signatureDecrypt, bits: 32}:               12003,
+		{signature: signatureBitXor, bits: 32}:                12003,
+		{signature: signatureAdd, bits: 32}:                   12167,
+		{signature: signatureCheckedAdd, bits: 32}:            12167,
+		{signature: signatureSub, bits: 32}:                   12337,
+		{signature: signatureCheckedSub, bits: 32}:            12337,
+		{signature: signatureMul, bits: 32}:                   22467,
+		{signature: signatureCheckedMul, bits: 32}:            22467,
+		{signature: signatureDiv, bits: 32}:                   28009,
+		{signature: signatureRem, bits: 32}:                   28009,
+		{signature: signatureMin, bits: 32}:                   12503,
+		{signature: signatureMax, bits: 32}:                   12503,
+		{signature: signatureLt, bits: 32}:                    12337,
+		{signature: signatureGt, bits: 32}:                    12503,
+		{signature: signatureGe, bits: 32}:                    12337,
+		{signature: signatureLe, bits: 32}:                    12503,
+		{signature: signatureEq, bits: 32}:                    12164,
+		{signature: signatureNe, bits: 32}:                    12164,
+		{signature: signatureTransfer, bits: 32}:              12837,
+		{signature: signatureTransferWithAllowance, bits: 32}: 13255,
+		{signature: signatureMux, bits: 32}:                   12166,
+		{signature: signatureOnboard, bits: 32}:               47039,
+		{signature: signatureValidateCiphertext, bits: 32}:    47039,
+		{signature: signatureOffboard, bits: 32}:              47042,
+		{signature: signatureOffboardToUser, bits: 32}:        47042,
+		{signature: signatureBitAnd, bits: 64}:                12320,
+		{signature: signatureBitOr, bits: 64}:                 12339,
+		{signature: signatureSetPublic, bits: 64}:             12006,
+		{signature: signatureDecrypt, bits: 64}:               12006,
+		{signature: signatureBitXor, bits: 64}:                12006,
+		{signature: signatureAdd, bits: 64}:                   12340,
+		{signature: signatureCheckedAdd, bits: 64}:            12340,
+		{signature: signatureSub, bits: 64}:                   12679,
+		{signature: signatureCheckedSub, bits: 64}:            12679,
+		{signature: signatureMul, bits: 64}:                   54233,
+		{signature: signatureCheckedMul, bits: 64}:            54233,
+		{signature: signatureDiv, bits: 64}:                   76377,
+		{signature: signatureRem, bits: 64}:                   76377,
+		{signature: signatureMin, bits: 64}:                   13012,
+		{signature: signatureMax, bits: 64}:                   13012,
+		{signature: signatureLt, bits: 64}:                    12679,
+		{signature: signatureGt, bits: 64}:                    13012,
+		{signature: signatureGe, bits: 64}:                    12679,
+		{signature: signatureLe, bits: 64}:                    13012,
+		{signature: signatureEq, bits: 64}:                    12334,
+		{signature: signatureNe, bits: 64}:                    12334,
+		{signature: signatureTransfer, bits: 64}:              13685,
+		{signature: signatureTransferWithAllowance, bits: 64}: 14527,
+		{signature: signatureMux, bits: 64}:                   12332,
+		{signature: signatureOnboard, bits: 64}:               47039,
+		{signature: signatureValidateCiphertext, bits: 64}:    47039,
+		{signature: signatureOffboard, bits: 64}:              47045,
+		{signature: signatureOffboardToUser, bits: 64}:        47045,
+		{signature: signatureGetKey}:                          47039,
+		{signature: signatureShl, bits: 8}:                    12620,
+		{signature: signatureShl, bits: 16}:                   14571,
+		{signature: signatureShl, bits: 32}:                   22467,
+		{signature: signatureShl, bits: 64}:                   54233,
+		{signature: signatureShr, bits: 8}:                    12969,
+		{signature: signatureShr, bits: 16}:                   15960,
+		{signature: signatureShr, bits: 32}:                   28009,
+		{signature: signatureShr, bits: 64}:                   76377,
+		{signature: signatureRand, bits: 1}:                   6000,
+		{signature: signatureRand, bits: 8}:                   6000,
+		{signature: signatureRand, bits: 16}:                  6000,
+		{signature: signatureRand, bits: 32}:                  6000,
+		{signature: signatureRand, bits: 64}:                  6000,
+		{signature: signatureRandBoundedBits, bits: 8}:        6000,
+		{signature: signatureRandBoundedBits, bits: 16}:       6000,
+		{signature: signatureRandBoundedBits, bits: 32}:       6000,
+		{signature: signatureRandBoundedBits, bits: 64}:       6000,
+		{signature: signatureSHA256Fixed432BitInput}:          120000,
+	}
 )
 
 var (
@@ -977,11 +1134,21 @@ func getSignatureAndBits(input []byte) signatureAndBits {
 	return key
 }
 
-func (c *mpcContract) RequiredGas(input []byte) uint64 {
+func (c *mpcContract) EVMAwareRequiredGas(input []byte, evm *EVM) uint64 {
 	// Get the signature and the number of bits for the given operation
 	key := getSignatureAndBits(input)
 
-	// Get the required gas for the given operation
+	// Before the Helium fork, check the required gas map before the Helium fork
+	if !c.isAfterHeliumFork(evm) {
+		if gas, ok := requiredGasMapBeforeHeliumFork[key]; ok {
+			return gas
+		} else {
+			log.Error("Operation not supported", "signature", key.signature, "bits", key.bits)
+			return 0
+		}
+	}
+
+	// After the Helium fork, get the required gas for the given operation from the updated requiredGasMap
 	if gas, ok := requiredGasMap[key]; ok {
 		return gas
 	}
@@ -990,23 +1157,40 @@ func (c *mpcContract) RequiredGas(input []byte) uint64 {
 	return 0
 }
 
-func (c *mpcContract) isSupportedOperation(input []byte) bool {
+func (c *mpcContract) RequiredGas(input []byte) uint64 {
+	log.Error("RequiredGas should not be called on an EVMAwarePrecompiledContract")
+	return 0
+}
+
+func (c *mpcContract) isSupportedOperation(input []byte, evm *EVM) bool {
 	// Get the signature and the number of bits for the given operation
 	key := getSignatureAndBits(input)
 
 	// If the operation is in the requiredGasMap, it is supported
 	if _, ok := requiredGasMap[key]; ok {
 
-		// TODO: Uncomment this in the next PR when the fork implementation is added
-		// if key.bits >= 128 { // && before helium
-		// 	log.Error("Operation not supported", "signature", key.signature, "bits", key.bits)
-		// 	return false
-		// }
+		// Before the Helium fork, operations with 128 bits or more are not supported
+		if key.bits >= 128 && !c.isAfterHeliumFork(evm) {
+			log.Error("Operation not supported", "signature", key.signature, "bits", key.bits)
+			return false
+		}
 		return true
 	}
 
 	log.Error("Operation not supported", "signature", key.signature, "bits", key.bits)
 	return false
+}
+
+func (c *mpcContract) getOperationName(signature uint32, evm *EVM) (string, bool) {
+	// Before the Helium fork, operations with 256 bits are not supported
+	if !c.isAfterHeliumFork(evm) {
+		if signature == signatureOnboard256 || signature == signatureValidateCiphertext256 || signature == signatureOffboard256 || signature == signatureOffboardToUser256 {
+			return "", false
+		}
+	}
+
+	opName, ok := operationNamesMap[signature]
+	return opName, ok
 }
 
 func getMax(nums ...int) int {
@@ -1031,14 +1215,6 @@ func getMax(nums ...int) int {
 // The function signatures, such as signatureAdd and others, uniquely define various operations.
 func (c *mpcContract) EVMAwareRun(input []byte, evm *EVM, caller common.Address, addr common.Address) ([]byte, error) {
 
-	// print if after heluim or before helium
-	// TODO: remove this after testing
-	if c.isAfterHeliumFork(evm) {
-		log.Error("After Helium fork")
-	} else {
-		log.Error("Before Helium fork")
-	}
-
 	if evm == nil {
 		log.Error("EVM is nil")
 		return nil, ErrEVMIsNIL
@@ -1056,7 +1232,7 @@ func (c *mpcContract) EVMAwareRun(input []byte, evm *EVM, caller common.Address,
 
 	signature := binary.BigEndian.Uint32(input[0:FUNC_SIG_SIZE])
 	// Get the operation based on the signature
-	opName, ok := operationNamesMap[signature]
+	opName, ok := c.getOperationName(signature, evm)
 	if !ok {
 		log.Error("Method not found")
 		evm.SetMPCError(ErrMethodNotFound)
@@ -1064,7 +1240,7 @@ func (c *mpcContract) EVMAwareRun(input []byte, evm *EVM, caller common.Address,
 	}
 
 	// If the operation is not supported for the given bit size, return an error
-	if !c.isSupportedOperation(input) {
+	if !c.isSupportedOperation(input, evm) {
 		log.Error("Operation not supported for this bit size")
 		return nil, ErrMethodNotFound
 	}

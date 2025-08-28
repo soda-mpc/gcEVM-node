@@ -50,6 +50,7 @@ type PrecompiledContract interface {
 // function instead of calling the Run function which is disabled for such contracts.
 // When the RunPrecompiledContract method is invoked, the EVMAwareRun method is executed instead of the Run function.
 type EVMAwarePrecompiledContract interface {
+	EVMAwareRequiredGas(input []byte, evm *EVM) uint64
 	EVMAwareRun(input []byte, evm *EVM, caller common.Address, addr common.Address) ([]byte, error)
 }
 
@@ -197,15 +198,23 @@ func ActivePrecompiles(rules params.Rules) []common.Address {
 func RunPrecompiledContract(p PrecompiledContract, evm *EVM, caller common.Address, addr common.Address, input []byte, suppliedGas uint64) (ret []byte, remainingGas uint64, err error) {
 	var output []byte
 
-	gasCost := p.RequiredGas(input)
-	if suppliedGas < gasCost {
-		return nil, 0, ErrOutOfGas
-	}
-
-	suppliedGas -= gasCost
 	if contract, ok := p.(EVMAwarePrecompiledContract); ok {
+		gasCost := contract.EVMAwareRequiredGas(input, evm)
+		if suppliedGas < gasCost {
+			return nil, 0, ErrOutOfGas
+		}
+
+		suppliedGas -= gasCost
+
 		output, err = contract.EVMAwareRun(input, evm, caller, addr)
 	} else {
+		gasCost := p.RequiredGas(input)
+		if suppliedGas < gasCost {
+			return nil, 0, ErrOutOfGas
+		}
+
+		suppliedGas -= gasCost
+
 		output, err = p.Run(input)
 	}
 
