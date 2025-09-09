@@ -211,7 +211,6 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 					if len(res) > 0 {
 						log.Debug("Adding output to transcript", "output length", len(res))
 						if err := c.AddExecutionOutputToTranscript(res); err != nil {
-							// SODA ERROR HANDLING
 							panic(err)
 						}
 					}

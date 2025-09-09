@@ -437,17 +437,17 @@ func (s *Ethereum) StartMining() error {
 			return fmt.Errorf("etherbase missing: %v", err)
 		}
 		if common.SodaEngine {
-			var sodaclq *co2.Co2
+			var co2Engine *co2.Co2
 			if c, ok := s.engine.(*co2.Co2); ok {
-				sodaclq = c
+				co2Engine = c
 			}
-			if sodaclq != nil {
+			if co2Engine != nil {
 				wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
 				if wallet == nil || err != nil {
 					log.Error("Etherbase account unavailable locally", "err", err)
 					return fmt.Errorf("signer missing: %v", err)
 				}
-				sodaclq.Authorize(eb, wallet.SignData)
+				co2Engine.Authorize(eb, wallet.SignData)
 			} else {
 				return fmt.Errorf("soda engine missing")
 			}

@@ -1103,7 +1103,8 @@ func mustSetSodaNetRoles(ctx *cli.Context) {
 		if !ctx.IsSet(SodaGlobalSequencerAddressFlag.Name) {
 			panic("Sequencer address not specified!")
 		}
-		// SODO: Number of executors should eventually be dynamic
+		// Number of executors would eventually be dynamic, when that happens we
+		// will migrate a different method of discovery/configuration.
 		if !ctx.IsSet(SodaGlobalExecutorPeerAddressFlag.Name) {
 			panic("Executor peer address not specified!")
 		}

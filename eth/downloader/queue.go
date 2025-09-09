@@ -383,7 +383,7 @@ func (q *queue) Results(block bool) []*fetchResult {
 		q.resultSize = common.StorageSize(blockCacheSizeWeight)*size +
 			(1-common.StorageSize(blockCacheSizeWeight))*q.resultSize
 
-		// SODO:
+		// TODO:
 		// add the transcript size and the sequencer header size to the result size
 	}
 	// Using the newly calibrated resultsize, figure out the new throttle limit

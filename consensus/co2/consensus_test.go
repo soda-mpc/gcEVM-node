@@ -74,7 +74,6 @@ var (
 	}
 )
 
-// SODO: Best thing will be to mock this using the go-mock package (when we have the time)
 type testChainHeaderReader struct {
 	getHeaderFunc func(hash common.Hash, number uint64) *types.Header
 }
@@ -304,7 +303,8 @@ func Test_Finalize_Executor_Happy(t *testing.T) {
 		return &mpcStatusTest
 	})
 	header := &types.Header{
-		Extra: make([]byte, shared.ExtraVanityLength+common.HashLength+common.HashLength+shared.ExtraSeal+shared.ExtraSeal),
+		Number: big.NewInt(1), // Set a block number to avoid nil pointer dereference
+		Extra:  make([]byte, shared.ExtraVanityLength+common.HashLength+common.HashLength+shared.ExtraSeal+shared.ExtraSeal),
 	}
 
 	expectedBlockHash := calcSeqBlockHashWithSignature(sequencerHeader)
@@ -610,8 +610,6 @@ func Test_ShouldAcceptBlock_Executor_Fail_NoSigner(t *testing.T) {
 // 2. The previous block is not a Sequencer (RED) block with a lower height.
 func Test_ValidateBlockForInsertion_Sequencer_Happy(t *testing.T) {
 	// Arrange:
-	// Reset the transcript
-	common.SodaTranscript = types.Transcript{}
 	// Create the previous header as a Sequencer (RED) block.
 	prevHeader := makeHeader(3, difficultySequencer.Int64())
 	// create the Sequencer's account and both "Executor" accounts
@@ -641,8 +639,7 @@ func Test_ValidateBlockForInsertion_Sequencer_Happy(t *testing.T) {
 
 func Test_ShouldAcceptBlock_Sequencer_Fail_WrongSigs(t *testing.T) {
 	// Arrange:
-	// Reset the transcript
-	common.SodaTranscript = types.Transcript{}
+
 	// Create the previous header as a Sequencer (RED) block.
 	prevHeader := makeHeader(3, difficultySequencer.Int64())
 	// Create the Sequencer's account and both "Executor" accounts
@@ -682,14 +679,12 @@ func Test_ShouldAcceptBlock_Sequencer_Fail_WrongSigs(t *testing.T) {
 	assert.Error(t, err2)
 	assert.EqualError(t, err1, errUnauthorizedSigner.Error())
 	assert.EqualError(t, err2, errUnauthorizedSigner.Error())
-	assert.Equal(t, len(common.SodaTranscript), 0)
 	assert.Equal(t, len(sequencerEngine.GetTranscript()), 0)
 }
 
 func Test_ValidateBlockForInsertion_Sequencer_Fail_SkippedExecutorBlock(t *testing.T) {
 	// Arrange:
-	// Reset the transcript
-	common.SodaTranscript = types.Transcript{}
+
 	// Create the previous header as a Sequencer (RED) block.
 	prevHeader := makeHeader(3, difficultySequencer.Int64())
 	// create the Sequencer's account and both "Executor" accounts
@@ -717,14 +712,12 @@ func Test_ValidateBlockForInsertion_Sequencer_Fail_SkippedExecutorBlock(t *testi
 	// Assert
 	assert.Error(t, err)
 	assert.EqualError(t, err, errSkipBlockAttempt.Error())
-	assert.Equal(t, len(common.SodaTranscript), 0)
 	assert.Equal(t, len(sequencerEngine.GetTranscript()), 0)
 }
 
 func Test_ValidateBlockForInsertion_Sequencer_Fail_UnorderedSignatures(t *testing.T) {
 	// Arrange:
-	// Reset the transcript
-	common.SodaTranscript = types.Transcript{}
+
 	// Create the previous header as a Sequencer (RED) block.
 	prevHeader := makeHeader(3, difficultySequencer.Int64())
 	// create the Sequencer's account and both "Executor" accounts
@@ -753,8 +746,7 @@ func Test_ValidateBlockForInsertion_Sequencer_Fail_UnorderedSignatures(t *testin
 
 	// Assert
 	assert.Error(t, err)
-	assert.EqualError(t, err, errUnorderedExecutorSignatures.Error())
-	assert.Equal(t, len(common.SodaTranscript), 0)
+	assert.EqualError(t, err, "unordered or duplicate signers")
 	assert.Equal(t, len(sequencerEngine.GetTranscript()), 0)
 }
 
@@ -1037,10 +1029,10 @@ func Test_CompleteFlow_Happy(t *testing.T) {
 		nil, executor1Address, executor2Address, sequencerAddress, Sequencer)
 
 	executor1Engine := New(&params.Co2Config{Period: period},
-		nil, executor2Address, executor2Address, sequencerAddress, Executor)
+		nil, executor1Address, executor2Address, sequencerAddress, Executor)
 
 	executor2Engine := New(&params.Co2Config{Period: period},
-		nil, executor1Address, executor1Address, sequencerAddress, Executor)
+		nil, executor1Address, executor2Address, sequencerAddress, Executor)
 
 	// Register the signer and the signer function for each engine
 	sequencerEngine.Authorize(
@@ -1091,7 +1083,6 @@ func Test_CompleteFlow_Happy(t *testing.T) {
 	require.NoError(t, err)
 
 	// The RED block is finalized, the Transcript is reset
-	require.Empty(t, common.SodaTranscript)
 	require.Empty(t, sequencerEngine.GetTranscript())
 
 	// We bypass the FinalizeAndAssemble method (which insists
@@ -1627,13 +1618,29 @@ func fullExecutorBlock(t *testing.T, header, seqHeader *types.Header, pk1, pk2 [
 	addr1, addr2 common.Address, seqHeaderHash common.Hash) *types.Block {
 	// Add the sequencer hash to the current block's extra data
 	addSequencerHashToExtraData(t, header, seqHeaderHash)
+
+	// Create a transcript for the block
+	transcript := &types.Transcript{execOutputTest[0], execOutputTest[1]}
+
+	// Add the transcript hash to the header's extra data
+	// This simulates what happens in the finalize function
+	var hash common.Hash
+	if header.Number.Uint64() >= 0 { // Hydrogen fork block (default is 0)
+		hash = transcript.Hash()
+	} else {
+		hash = transcript.Last32Bytes()
+	}
+	extra, err := InsertIntoExtraData(shared.TranscriptHash, hash.Bytes(), header.Extra)
+	require.NoError(t, err)
+	header.Extra = extra
+
 	// Arrange the keys in ascending order
 	key1, key2 := getOrderedKeys(pk1, pk2, addr1, addr2, false)
 	// Sign the hash with the two executors and create a block with the current header
 	// and a transcript.
 	currentBlock := blockWithHeader(
 		signedExecutorHeader(t, header, key1, key2),
-		&types.Transcript{execOutputTest[0], execOutputTest[1]},
+		transcript,
 	)
 	// add the Sequencer's header to the block
 	currentBlock.SetSequencerHeader(seqHeader)

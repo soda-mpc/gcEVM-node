@@ -427,7 +427,7 @@ func (w *worker) close() {
 }
 
 func checkStaleSequencerBlock(c *co2.Co2, header *types.Header) bool {
-	log.Debug("Checking for stale sequencer block")
+	log.Debug("Checking for a stale sequencer (pseudo-state) block")
 	return (!c.SyncInProgress() &&
 		header.Number.Cmp(common.Big0) > 0 &&
 		c.IsHeaderSignedBySequencer(header))
@@ -583,7 +583,7 @@ func (w *worker) mainLoop() {
 
 	var triggerCh chan *types.Block
 
-	// We will periodically check for stale sequencer blocks and re-trigger them.
+	// We will periodically check for stale sequencer (pseudo state) blocks and re-trigger them.
 	// This check is only for executors in archival mode since if they don't sync
 	// after crash recovery they will not be able to re-trigger the block
 	var ticker *time.Ticker
@@ -595,7 +595,6 @@ func (w *worker) mainLoop() {
 		}
 		ticker = nil
 	}
-	log.Debug("Ticker created for stale block check")
 
 	if isCo2 {
 		triggerCh = co2Engine.GetSequencerBlockChannel()
@@ -608,7 +607,7 @@ func (w *worker) mainLoop() {
 	for {
 		select {
 		case <-tickerChan:
-			log.Debug("Tick-Tock")
+			log.Debug("Ticker ticked, checking for a stale sequencer block")
 			header := w.chain.CurrentBlock()
 			if header == nil {
 				log.Warn("Current block (header) is nil")
@@ -672,7 +671,7 @@ func (w *worker) mainLoop() {
 					panic(fmt.Sprintf("Extremely bad! error: %s", err.Error()))
 				}
 			}
-			log.Debug("Sequencer -> Executor block evaluation completed")
+			log.Debug("Pseudo state -> Canonical state block evaluation completed")
 
 		case req := <-w.newWorkCh:
 			if isCo2 {
@@ -680,7 +679,9 @@ func (w *worker) mainLoop() {
 				if w.syncing.Load() || !co2Engine.IsSequencer() || !co2Engine.ShouldSequencerAddBlock(currentHeader, w.etherbase()) {
 					continue
 				}
-				log.Debug("Sequencer generating new block on top of current block details", "number", currentHeader.Number.Int64(), "hash", currentHeader.Hash().Hex(), "difficulty", currentHeader.Difficulty.Int64(), "timestamp", currentHeader.Time, "Etherbase", w.etherbase().Hex())
+				log.Debug("Sequencer generating new pseudo state block. Current chain head details:",
+					"number", currentHeader.Number.Int64(), "hash", currentHeader.Hash().Hex(), "difficulty",
+					currentHeader.Difficulty.Int64(), "timestamp", currentHeader.Time, "Etherbase", w.etherbase().Hex())
 			}
 			log.Debug("Starting new work", "timestamp", req.timestamp)
 			w.commitWork(req.interrupt, req.timestamp)
@@ -851,7 +852,6 @@ func (w *worker) resultLoop() {
 				receipts = make([]*types.Receipt, len(task.receipts))
 				logs     []*types.Log
 			)
-			log.Debug("Before receipts loop", "receipts", len(task.receipts))
 			for i, taskReceipt := range task.receipts {
 				receipt := new(types.Receipt)
 				receipts[i] = receipt
@@ -873,7 +873,6 @@ func (w *worker) resultLoop() {
 				}
 				logs = append(logs, receipt.Logs...)
 			}
-			log.Debug("After receipts loop", "receipts", len(receipts))
 			w.lastBlockNumMu.Lock()
 			if block.Number().Cmp(w.lastSentBlockNumber) < 1 {
 				log.Warn("Skipping block submission as it is older than the last sent block",
@@ -884,7 +883,6 @@ func (w *worker) resultLoop() {
 			previousLastBlockNumber := w.lastSentBlockNumber
 			w.lastSentBlockNumber = block.Number()
 			w.lastBlockNumMu.Unlock()
-			log.Debug("Before writing block to chain", "block_number", block.NumberU64(), "last_sent_block_number", previousLastBlockNumber)
 			co2Engine, isCO2 := w.engine.(*co2.Co2)
 			if isCO2 {
 				if co2Engine.IsExecutor() {
@@ -927,8 +925,8 @@ func (w *worker) resultLoop() {
 					co2Engine.GetSealInterruptChannel() <- &interrupt
 					log.Debug("Sent interrupt to sealing work (this is normal)", "interupts in channel", len(co2Engine.GetSealInterruptChannel()))
 					// We then remove the sequencer's block as soon as the Executor's block is saved and propagated.
-					// The params are the Sequencer's block hash but the Executor block number (this validates
-					// the sequencer's block was in fact at the same height as the Executor's)
+					// The params are the Sequencer's block hash but the Executor block number (this would interrupt
+					// only if the sequencer's block was in fact at the same height as the Executor's)
 					w.chain.RemoveBlock(block.GetSequencerHeader().Hash(), block.Number().Uint64())
 					log.Debug("Removed sequencer block from chain", "block_number", block.NumberU64(), "block_hash", block.GetSequencerHeader().Hash())
 					ok, prevState := co2Engine.NextExecutionStep(co2.WaitingForSequencerBlock)
@@ -1034,7 +1032,7 @@ func (w *worker) applyTransaction(env *environment, tx *types.Transaction) (*typ
 		vmConfig = *w.chain.GetVMConfig()
 	)
 	if c, ok := w.engine.(*co2.Co2); ok {
-		// There are only one execution type for generating a new block:
+		// There are only two execution types for generating a new block:
 		// MPCExecution - Executors will execute transactions and generate secret state via MPC.
 		// Sequencing - Sequencers will generate a new block without actually evaluating secret
 		// state, this part of the protocol is used to determine the order of transactions in a
@@ -1203,8 +1201,8 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 	} else {
 		if c.IsSequencer() {
 			if c.IsHeaderSignedBySequencer(parent) && parent.Number.Uint64() > 0 {
-				log.Error("Parent block of red block is signed by sequencer")
-				return nil, fmt.Errorf("parent block of red block is also red")
+				log.Error("Parent block of pseudo state block is signed by sequencer")
+				return nil, fmt.Errorf("parent block of pseudo state block cannot also be pseudo state")
 			}
 			c.SetExecutorBlockTimestamp(parent.Time)
 		}
@@ -1282,22 +1280,21 @@ func (w *worker) fillOrderedBlockTxs(txs types.Transactions, env *environment) e
 		log.Warn("transaction started")
 		if env.gasPool.Gas() < params.TxGas {
 			log.Warn("Not enough gas for further transactions", "have", env.gasPool.Gas(), "want", params.TxGas)
-			// This is a temporary solution, this means the transaction is not included in the Black block even
-			// though it was sequenced as part of the Red block. In the future we should take steps to avoid this
-			// discrepancy.
-			break // Cut the black block, do not continue to accept further transactions
+			// This is a temporary solution, this means the transaction is not included in the canonical block even
+			// though it was sequenced as part of the pseudo block.
+			break
 		}
 		// If we don't have enough space for the next transaction, skip the account.
 		if env.gasPool.Gas() < tx.Gas() {
 			log.Warn("Not enough gas left for transaction", "hash", tx.Hash(), "left", env.gasPool.Gas(), "needed", tx.Gas())
-			// This is a temporary solution, this means the transaction is not included in the Black block even
-			// though it was sequenced as part of the Red block. In the future we should take steps to avoid this
-			// discrepancy.
-			break // Cut the black block, do not continue to accept further transactions
+			// This is a temporary solution, this means the transaction is not included in the canonical block even
+			// though it was sequenced as part of the pseudo block.
+			break
 		}
+		// Technically should not happen, but let's be safe
 		if left := uint64(params.MaxBlobGasPerBlock - env.blobs*params.BlobTxBlobGasPerBlob); left < tx.BlobGas() {
 			log.Warn("Not enough blob gas left for transaction", "hash", tx.Hash(), "left", left, "needed", tx.BlobGas())
-			break // Cut the black block, do not continue to accept further transactions
+			break
 		}
 
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
@@ -1305,7 +1302,8 @@ func (w *worker) fillOrderedBlockTxs(txs types.Transactions, env *environment) e
 		if tx.Protected() && !w.chainConfig.IsEIP155(env.header.Number) {
 			log.Error("Ignoring replay protected transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
 			// This remains an error, this transactions should not have been included in the Sequencer's block.
-			return fmt.Errorf("received replay-protected tx in Sequencer's block ignoring replay protected transaction hash: %v eip155: %v", tx.Hash(), w.chainConfig.EIP155Block)
+			return fmt.Errorf("received replay-protected tx in Sequencer's block ignoring replay protected transaction hash: %v eip155: %v",
+				tx.Hash(), w.chainConfig.EIP155Block)
 		}
 		// Start executing the transaction
 		env.state.SetTxContext(tx.Hash(), env.tcount)
@@ -1318,12 +1316,12 @@ func (w *worker) fillOrderedBlockTxs(txs types.Transactions, env *environment) e
 				log.Error("Transaction failed", "hash", tx.Hash(), "err", err)
 				return err
 			}
-			// If the transaction failed, we don't want to include it in the block, but tthe block should be created
 			log.Warn("Transaction failed", "hash", tx.Hash(), "err", err)
-			break // Cut the black block, do not continue to accept further transactions
+			break
 		}
 		subtractedGasPool := env.gasPool.Gas()
-		log.Info("Gas pool after transaction", "tx hash", tx.Hash(), "tx gas", tx.Gas(), "gas", subtractedGasPool, "transaction required gas", currentGasPool-subtractedGasPool)
+		log.Info("Gas pool after transaction", "tx hash", tx.Hash(), "tx gas", tx.Gas(), "gas",
+			subtractedGasPool, "transaction required gas", currentGasPool-subtractedGasPool)
 		currentGasPool = subtractedGasPool
 
 		// Everything ok, collect the logs and shift in the next transaction from the same account
@@ -1347,7 +1345,7 @@ func (w *worker) fillOrderedBlockTxs(txs types.Transactions, env *environment) e
 		w.pendingLogsFeed.Send(cpy)
 	}
 
-	log.Debug("Done filling ordered block transactions", "num txs in block", env.tcount)
+	log.Debug("Done filling ordered block transactions", "block tx num", env.tcount)
 
 	return nil
 }
@@ -1421,7 +1419,7 @@ func (w *worker) commitExecutorWork(block *types.Block) error {
 	// Set the coinbase if the worker is running or it's required
 	var coinbase common.Address
 	if c, ok := w.engine.(*co2.Co2); ok {
-		// In our protocol (currently) the only permissable coinbase is the sequencer address.
+		// In our protocol (currently) the only permissible coinbase is the sequencer's address.
 		// There are numerous reasons for this choice, but the main one is that we want to
 		// have both Executors sign the same block hash, which is not possible if we allow
 		// a discrepancy in the coinbase field between the two.
@@ -1437,9 +1435,9 @@ func (w *worker) commitExecutorWork(block *types.Block) error {
 	work, err := w.prepareWork(&generateParams{
 		timestamp: block.Time(),
 		coinbase:  coinbase,
-		// The Executor's view of the chain includes the Sequencer's block, we want to generate
-		// a new block that would replace it, that block should point to the Sequencer's block's
-		// parent and not to the soon-to-be-replaced Sequencer block.
+		// The Executor's view of the chain includes the pseudo block, we want to generate
+		// a new block that would replace it, that block should point to the pseudo block's
+		// parent and not to the soon-to-be-replaced pseudo block itself.
 		parentHash: block.ParentHash(),
 	})
 	if err != nil {

@@ -640,22 +640,22 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
 		// We should consider this later since it basically cancels gossiping in favor of flooding
 		if _, ok := h.chain.Engine().(*co2.Co2); ok {
-			// Sequencer and executors ahould send to all peers
+			// Sequencer and executors should send to all peers
 			if common.SodaRole != common.Validator {
 				transfer = peers
 			} else if !common.IsExternalValidator() { // Internal validators should send to a subset of peers, excluding the sequencer
 				for i, peer := range transfer {
 					// If the sequencer is in the transfer list, remove it
 					if common.IsSequencerPubKey(hex.EncodeToString(crypto.FromECDSAPub(peer.Node().Pubkey())[1:])) {
-					    log.Debug("Removing sequencer from broadcast list", "peer", peer.ID())
-					    if i == len(transfer)-1 {
-					        // If the sequencer is the last element, simply slice it off.
-					        transfer = transfer[:i]
-					    } else {
-					        // Otherwise, remove the element by concatenating the slices.
-					        transfer = append(transfer[:i], transfer[i+1:]...)
-					    }
-					    break
+						log.Debug("Removing sequencer from broadcast list", "peer", peer.ID())
+						if i == len(transfer)-1 {
+							// If the sequencer is the last element, simply slice it off.
+							transfer = transfer[:i]
+						} else {
+							// Otherwise, remove the element by concatenating the slices.
+							transfer = append(transfer[:i], transfer[i+1:]...)
+						}
+						break
 					}
 				}
 			}
