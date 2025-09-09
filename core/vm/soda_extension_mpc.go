@@ -407,14 +407,12 @@ var conn *grpc.ClientConn
 
 func CreateMPCService() error {
 	log.Debug("CreateMPCService")
-	// Create a context for the RPC call
 	ctx := context.Background()
 
 	var serverPort = common.MpcServerPort
 	var ip = common.MpcServerIP
 
 	log.Debug("CallMPCService - Dialing the gRPC server at:", "IP", ip, "serverPort", serverPort)
-	// Dial the gRPC server (asynchronous connection)
 
 	for {
 		var err error
@@ -434,7 +432,6 @@ func CreateMPCService() error {
 
 	log.Debug("CallMPCService - Connection established")
 
-	// Create a new gRPC evaluator client
 	client = NewMPCServiceClient(conn)
 	clientCreated = true
 
@@ -442,9 +439,8 @@ func CreateMPCService() error {
 }
 
 func waitForReadyServer() error {
-	// Wait until the connection is ready
-	// Create a context for the RPC call
 	ctx := context.Background()
+	// Wait until the connection is ready
 	for {
 		state := conn.GetState()
 		if state == connectivity.Ready {
@@ -467,18 +463,12 @@ func waitForReadyServer() error {
 func GetMPCStatus() *types.MPCStatus {
 	log.Debug("GetMPCStatus")
 
-	// Create a context for the RPC call
 	ctx := context.Background()
-
-	// Prepare the request
 	request := &GetMPCStatusRequest{}
-
-	// Call the rpc GetMPCStatus method
 	response, err := client.GetMPCStatus(ctx, request)
 	for err != nil {
 		log.Error("GetMPCStatus - could not run MPC", "error", err)
 		if st, ok := status.FromError(err); ok && st.Code() == codes.Unavailable {
-			// Print the error message sent from the server
 			log.Error("GetMPCStatus - gRPC error occurred", "code", st.Code(), "message", st.Message())
 			waitErr := waitForReadyServer()
 			if waitErr != nil {
@@ -503,7 +493,6 @@ func GetMPCStatus() *types.MPCStatus {
 		return nil
 	}
 
-	// Create a new MPCStatus and populate it with values from the gRPC response
 	status := &types.MPCStatus{
 		OpcodesNames:        response.CircuitsNames,
 		BatchIds:            response.BatchIds,
@@ -521,18 +510,12 @@ func SetInitialMPCStatus() {
 		CreateMPCService()
 	}
 
-	// Create a context for the RPC call
 	ctx := context.Background()
-
-	// Prepare the request
 	request := &InitMPCStatusRequest{}
-
-	// Call the rpc SetMPCStatus method
 	response, err := client.InitMPCStatus(ctx, request)
 	for err != nil {
 		log.Error("SetInitialMPCStatus - could not run MPC", "error", err)
 		if st, ok := status.FromError(err); ok && st.Code() == codes.Unavailable {
-			// Print the error message sent from the server
 			log.Error("SetInitialMPCStatus - gRPC error occurred", "code", st.Code(), "message", st.Message())
 			waitErr := waitForReadyServer()
 			if waitErr != nil {
@@ -560,22 +543,16 @@ func SetMPCStatus(mpcStatus *types.MPCStatus) error {
 		CreateMPCService()
 	}
 
-	// Create a context for the RPC call
 	ctx := context.Background()
-
-	// Prepare the request
 	request := &SetMPCStatusRequest{
 		CircuitsNames:    mpcStatus.OpcodesNames,
 		BatchIds:         mpcStatus.BatchIds,
 		CircuitInBatches: mpcStatus.CircuitsInsideBatch,
 	}
-
-	// Call the rpc SetMPCStatus method
 	response, err := client.SetMPCStatus(ctx, request)
 	for err != nil {
 		log.Error("SetMPCStatus - could not run MPC", "error", err)
 		if st, ok := status.FromError(err); ok && st.Code() == codes.Unavailable {
-			// Print the error message sent from the server
 			log.Error("SetMPCStatus - gRPC error occurred", "code", st.Code(), "message", st.Message())
 			waitErr := waitForReadyServer()
 			if waitErr != nil {
@@ -651,7 +628,8 @@ func validateScalarInputs(opName string, parametersBitSize []uint32, inputTypes 
 	if opName == "TRANSFER" || opName == "TRANSFERWITHALLOWANCE" {
 		// In the context of a transfer, scalar balances are irrelevant;
 		// The only possibility for a scalar value is within the "amount" parameter.
-		// Therefore, in this scenario, BOTH_SECRET signifies a secret amount. Any other value, signifies a scalar amount.
+		// Therefore, in this scenario, BOTH_SECRET signifies a secret amount.
+		// Any other value, signifies a scalar amount.
 		if inputTypes == LHS_PUBLIC || inputTypes == RHS_PUBLIC {
 			if !checkScalarInput(parameters[2], parametersBitSize[2]) {
 				log.Error("ValidateScalarInputs - invalid scalar input", "parameter", parameters[0])
@@ -670,7 +648,6 @@ func validateScalarInputs(opName string, parametersBitSize []uint32, inputTypes 
 }
 
 func validateArguments(opName string, parametersBitSize []uint32, numInputs int, inputTypes byte, parameters [][]byte) bool {
-	// Validates that the number of inputs is not negative
 	if numInputs < 0 {
 		log.Error("ValidateArguments - invalid number of inputs", "numInputs", numInputs)
 		return false
@@ -743,15 +720,12 @@ func validateArguments(opName string, parametersBitSize []uint32, numInputs int,
 }
 
 func runOpcode(opName string, parametersBitSize []uint32, numInputs int, inputTypes byte, parameters [][]byte) ([]byte, error) {
-	// Create a context for the RPC call
 	ctx := context.Background()
 
-	// Validate the arguments
 	if !validateArguments(opName, parametersBitSize, numInputs, inputTypes, parameters) {
 		return nil, ErrInvalidInputFormat
 	}
 
-	// Prepare the request
 	request := &MPCRequest{
 		OpName:            opName,
 		NumInputs:         uint32(numInputs),
@@ -760,16 +734,14 @@ func runOpcode(opName string, parametersBitSize []uint32, numInputs int, inputTy
 		Parameters:        parameters,
 	}
 
-	// Call the RunMPC method
 	response, err := client.RunMPC(ctx, request)
 	if err != nil {
 		log.Error("RunOpcode - could not run MPC", "error", err)
 		st, ok := status.FromError(err)
 		if ok {
-			// Print the error message sent from the server
 			log.Error("GRPC error occurred", "code", st.Code(), "message", st.Message())
 
-			if st.Code() == codes.Unavailable { // The server is not available
+			if st.Code() == codes.Unavailable {
 				return nil, ErrMPCConnection
 			}
 
@@ -794,7 +766,6 @@ func runOpcode(opName string, parametersBitSize []uint32, numInputs int, inputTy
 		return nil, ErrMPCUnknownError
 	}
 
-	// Handle the response
 	log.Debug("MPC Response:", "output", response.Output)
 	return response.Output, nil
 }
@@ -1510,7 +1481,6 @@ func (c *mpcContract) getUserKey(opName string, input []byte, evm *EVM) ([]byte,
 
 	user := evm.Origin // Sender address
 
-	// Verify the signature
 	ok := verifySignatureAndSigner(user, signedEK, signature)
 	if !ok {
 		log.Error("Error verifying signature")
@@ -1543,8 +1513,8 @@ func toEVMBytes(input []byte) []byte {
 	lenBytes32 := uint256.NewInt(arrLen).Bytes32()
 	ret := make([]byte, 32, arrLen+64)
 	ret[31] = 0x20                      // Pad according to abi specification, first add big-endian offset of the size
-	ret = append(ret, lenBytes32[:]...) // Apend the size of the byte array
-	ret = append(ret, input...)         // Apent the actual bytes array
+	ret = append(ret, lenBytes32[:]...) // Append the size of the byte array
+	ret = append(ret, input...)         // Append the actual bytes array
 	return ret
 }
 

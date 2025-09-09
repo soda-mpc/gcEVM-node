@@ -20,11 +20,9 @@ import (
 	"math/big"
 	"sort"
 	"sync"
-	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/co2"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -36,7 +34,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/soda_tests"
 )
 
 var (
@@ -185,50 +182,4 @@ func newTestHandlerWithBlocks(blocks int) *testHandler {
 func (b *testHandler) close() {
 	b.handler.Stop()
 	b.chain.Stop()
-}
-
-func NewSodaTestHandlers(t *testing.T, numBlocks int, headBlockType, emptyEngineType co2.SodaRoleType) (*testHandler, *testHandler) {
-	cm := soda_tests.ChainMaker(t)
-	emptyChain, emptyDB := soda_tests.MakeEmptyChain(cm, co2.Executor)
-
-	emptyTxPool := newTestTxPool()
-
-	emptyHandler, _ := newHandler(&handlerConfig{
-		Database:   emptyDB,
-		Chain:      emptyChain,
-		TxPool:     emptyTxPool,
-		Merger:     consensus.NewMerger(rawdb.NewMemoryDatabase()),
-		Network:    1,
-		Sync:       downloader.FullSync,
-		BloomCache: 1,
-	})
-	emptyHandler.Start(2)
-
-	fullChain, fullDB := soda_tests.MakeSodaChain(cm, numBlocks, headBlockType)
-
-	fullTxPool := newTestTxPool()
-
-	fullHandler, _ := newHandler(&handlerConfig{
-		Database:   fullDB,
-		Chain:      fullChain,
-		TxPool:     fullTxPool,
-		Merger:     consensus.NewMerger(rawdb.NewMemoryDatabase()),
-		Network:    1,
-		Sync:       downloader.FullSync,
-		BloomCache: 1,
-	})
-	fullHandler.Start(2)
-
-	return &testHandler{
-			db:      emptyDB,
-			chain:   emptyChain,
-			txpool:  emptyTxPool,
-			handler: emptyHandler,
-		}, &testHandler{
-			db:      fullDB,
-			chain:   fullChain,
-			txpool:  fullTxPool,
-			handler: fullHandler,
-		}
-
 }

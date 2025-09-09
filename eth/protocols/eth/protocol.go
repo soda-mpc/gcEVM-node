@@ -32,7 +32,7 @@ import (
 const (
 	ETH67 = 67
 	ETH68 = 68
-	SODA  = 69 // We should probably use a much higher number
+	SODA  = 69
 )
 
 // ProtocolName is the official short name of the `eth` protocol used during

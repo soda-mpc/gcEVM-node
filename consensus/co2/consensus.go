@@ -72,6 +72,11 @@ const (
 	Validator SodaRoleType = "validator"
 )
 
+const (
+	requestSigThresholdDefault     = 10
+	executorSigWaitIntervalDefault = 1500 * time.Millisecond
+)
+
 type blockTimestamp struct {
 	number    *big.Int
 	timestamp uint64
@@ -190,14 +195,12 @@ func defaultForks() Forks {
 	}
 }
 
-// Co2 is a consensus engine that combines the eth1 consensus and proof-of-stake
-// algorithm. There is a special flag inside to decide whether to use legacy consensus
-// rules or new rules. The transition rule is described in the eth1/2 merge spec.
-// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3675.md
-//
-// The beacon here is a half-functional consensus engine with partial functions which
-// is only used for necessary consensus checks. The legacy consensus engine can be any
-// engine implements the consensus interface (except the beacon itself).
+// Co2 is the consensus engine used for the gcEVM chain protocol.
+// it is currently a Proof-of-Authority protocol with pre-configured
+// participators in the block generation process. The engine allows
+// for an unlimited number of non-block generator participants, to
+// increase network strength, perform data validation and provide
+// access to the canonical state.
 type Co2 struct {
 	config *params.Co2Config // Consensus engine configuration parameters
 	db     ethdb.Database    // Database to store and retrieve snapshot checkpoints
@@ -206,45 +209,50 @@ type Co2 struct {
 	signFn SignerFn       // Signer function to authorize hashes with
 	lock   sync.RWMutex   // Protects the signer and proposals fields
 
-	sequencerBlockCh          chan *types.Block
-	executorSigCh             chan *types.ExecutorSigDetails
-	sealInterruptCh           chan *types.SealInterruptMsg
-	SodaRole                  SodaRoleType
-	SodaSequencerAddress      common.Address
-	authorizedSignersSet      map[common.Address]int
-	broadcastExecutorSig      func(*types.ExecutorSigDetails)
-	requestExecutorSig        func(uint64)
-	getBlock                  func(uint64) *types.Block
-	getMPCStatus              func() *types.MPCStatus
-	requestSequencerBlockFunc func(uint64)
-	triggerSyncFunc           func()
-	transcript                types.Transcript
-	// This field is used to store the latest sequencer header, which will be hashed
-	// and stored in the extra-data field of the finalized executor block.
+	sequencerBlockCh chan *types.Block
+	executorSigCh    chan *types.ExecutorSigDetails
+	sealInterruptCh  chan *types.SealInterruptMsg
+
+	// block validation
+	SodaRole             SodaRoleType
+	SodaSequencerAddress common.Address
+	authorizedSignersSet map[common.Address]int
+
+	// block data management
+	transcript               types.Transcript
 	latestSequencerHeader    *types.Header
 	latestExecutorSig        *types.ExecutorSigDetails
 	latestBlockTimestamp     blockTimestamp
 	latestBlockTimestampLock sync.RWMutex
 	executorSigWaitInterval  time.Duration
 	etherbase                common.Address
-	// We save the latest chain header in cases of a chain rewind.
-	// This header will be used for new block insertion checks.
-	latestChainHeader *types.Header
 
-	syncing                   atomic.Bool // The indicator whether the node is still syncing.
+	// sync operations
+	syncing                   atomic.Bool
+	latestChainHeader         *types.Header
 	ShouldRejectDuplicateHash bool
 	executorBlockTimestamp    uint64
 	archivalMode              bool
 	fullSyncMode              bool
 
+	// signature coordination
 	executionState      ExecutionState
 	executionStateLock  sync.RWMutex
 	sigRequestsForBlock SigRequestsForBlock
 	sigRequestsLock     sync.RWMutex
 	RequestSigThreshold uint8
 
-	emissions *params.EmissionsConfig // configuration for coin emissions
+	// chain management
+	emissions *params.EmissionsConfig // configuration for currency emissions
 	forks     Forks
+
+	// injected functionality
+	broadcastExecutorSig      func(*types.ExecutorSigDetails)
+	requestExecutorSig        func(uint64)
+	getBlock                  func(uint64) *types.Block
+	getMPCStatus              func() *types.MPCStatus
+	requestSequencerBlockFunc func(uint64)
+	triggerSyncFunc           func()
 }
 
 func validateNonEmptyEmissionsConfig(emissions *params.EmissionsConfig) error {
@@ -340,13 +348,11 @@ func updateBuffer(addresses []common.Address) []byte {
 	return buf.Bytes()
 }
 
-// New creates a consensus engine with the given embedded eth1 engine.
 func New(config *params.Co2Config, db ethdb.Database, exec1Addr,
 	exec2Addr, seqAddr common.Address, role SodaRoleType) *Co2 {
-	// This will change in the future to a method that parses multiple addresses
 	signerSet := make(map[common.Address]int)
-	// Executor signature order matters for validaton, we compare their addresses
-	// and assign the signature order based on this comparison.
+	// Executor signature order matters for validation, we compare their addresses
+	// and assign the signature lexicographical order based on this comparison.
 	first, second := common.Address{}, common.Address{}
 	if bytes.Compare(exec1Addr[:], exec2Addr[:]) > 0 {
 		signerSet[exec1Addr] = 1
@@ -395,11 +401,11 @@ func New(config *params.Co2Config, db ethdb.Database, exec1Addr,
 		SodaSequencerAddress:      seqAddr,
 		authorizedSignersSet:      signerSet,
 		transcript:                nil,
-		executorSigWaitInterval:   1500 * time.Millisecond,
+		executorSigWaitInterval:   executorSigWaitIntervalDefault,
 		etherbase:                 etherbase,
 		ShouldRejectDuplicateHash: true,
 		executionState:            WaitingForSequencerBlock,
-		RequestSigThreshold:       10, // TODO: make this a parameter
+		RequestSigThreshold:       requestSigThresholdDefault,
 		latestBlockTimestamp:      blockTimestamp{number: common.Big0, timestamp: 0},
 		emissions:                 config.Emissions,
 		forks:                     forks,
@@ -449,10 +455,8 @@ func (co2 *Co2) NextExecutionStep(state ExecutionState) (bool, ExecutionState) {
 }
 
 func (co2 *Co2) ApplyInsertBlockConfiguration(block *types.Block, cfg *vm.Config) {
-	// Call the function that determines if the header is signed by the sequencer.
 	isSeqHeader := co2.IsHeaderSignedBySequencer(block.Header())
 
-	// Marshal the block into RLP.
 	blockRLP, err := rlp.EncodeToBytes(block)
 	if err != nil {
 		panic(fmt.Errorf("failed to marshal block: %v", err))
@@ -461,7 +465,6 @@ func (co2 *Co2) ApplyInsertBlockConfiguration(block *types.Block, cfg *vm.Config
 		panic(fmt.Errorf("failed to marshal block: empty RLP"))
 	}
 
-	// Call the shared library function.
 	retCFG := C.ApplyInsertBlockConfiguration(
 		(*C.uchar)(unsafe.Pointer(&blockRLP[0])),
 		C.int(len(blockRLP)),
@@ -481,7 +484,7 @@ func (co2 *Co2) ApplyInsertBlockConfiguration(block *types.Block, cfg *vm.Config
 		panic(fmt.Errorf("failed to unmarshal config: %v", err))
 	}
 
-	// (Usually updatedCfg and cfg point to the same underlying object.)
+	// Usually updatedCfg and cfg point to the same underlying object.
 	cfg.ExecType = updatedCfg.ExecType
 	cfg.Transcript = updatedCfg.Transcript
 	cfg.Header = updatedCfg.Header
@@ -631,9 +634,8 @@ func (co2 *Co2) ValidateBlockForInsertion(block *types.Block, prevHeader *types.
 	return nil
 }
 
-// Change in next PR
 func (co2 *Co2) ShouldSequencerAddBlock(header *types.Header, ethbase common.Address) bool {
-	// the 0th block is the genesis block, which is always accepted
+	// the genesis block is always accepted
 	if header.Number.Cmp(big.NewInt(0)) == 0 {
 		return true
 	}
@@ -676,7 +678,6 @@ func (co2 *Co2) GetBlockType(block *types.Block) (*SodaRoleType, error) {
 	}
 	header := block.Header()
 
-	// Marshal the block header into a byte slice.
 	headerRLP, err := rlp.EncodeToBytes(header)
 	if err != nil {
 		return nil, err
@@ -710,15 +711,11 @@ func (co2 *Co2) GetBlockType(block *types.Block) (*SodaRoleType, error) {
 
 }
 
-// Author implements consensus.Engine, returning the Ethereum address recovered
-// from the signature in the header's extra-data section.
 func (co2 *Co2) Author(header *types.Header) (common.Address, error) {
 	return ecrecover(header)
 }
 
-// ecrecover extracts the Ethereum account address from a signed header.
 func ecrecover(header *types.Header) (common.Address, error) {
-	// Retrieve the signature from the header extra-data
 	if len(header.Extra) < shared.ExtraSeal {
 		return common.Address{}, errMissingSignature
 	}
@@ -755,8 +752,8 @@ func (co2 *Co2) IsHeaderSignedBySequencer(header *types.Header) bool {
 }
 
 func (co2 *Co2) VerifyExecutorSigners(header *types.Header) error {
-	// The extra data field should not diverge from the expected length in any way
-	// or the signatures extracted from it will be invalid (or there will be a panic
+	// The extra data field should not diverge from the expected length in any
+	// way, or the signatures extracted from it will be invalid (or cause a panic
 	// if the field is too short).
 	if len(header.Extra) != shared.ExtraDataLength {
 		log.Error("extra data length mismatch", "length", len(header.Extra), "expected", shared.ExtraDataLength, "extraData", header.Extra)
@@ -769,8 +766,6 @@ func (co2 *Co2) VerifyExecutorSigners(header *types.Header) error {
 	for i := shared.NumExecutors - 1; i >= 0; i-- {
 		// get the signature from the header extra-data
 		signature := header.Extra[len(header.Extra)-shared.ExtraSeal*(i+1) : len(header.Extra)-shared.ExtraSeal*i]
-		// recover the public key and the Ethereum address
-
 		num, err := co2.verifyExecutorSigner(sealHash, signature)
 		if err != nil {
 			return err
@@ -1025,16 +1020,11 @@ func (co2 *Co2) Prepare(chain consensus.ChainHeaderReader, header *types.Header)
 			co2.latestBlockTimestamp.number = header.Number
 			co2.latestBlockTimestamp.timestamp = header.Time
 		}
-		// now := uint64(time.Now().Unix())
-		// header.Time = co2.executorBlockTimestamp + co2.config.Period
-		// if header.Time < now {
-		// 	header.Time = now
-		// }
 	}
 	return nil
 }
 
-// Finalize implements consensus.Engine. It remains empty since it isn't part of the Co2 consensus.
+// Finalize implements consensus.Engine.
 func (co2 *Co2) Finalize(chain consensus.ChainHeaderReader,
 	header *types.Header, stateDB *state.StateDB, _ []*types.Transaction,
 	_ []*types.Header, _ []*types.Withdrawal) {
@@ -1139,7 +1129,6 @@ func (co2 *Co2) totalCoinsToMint(header *types.Header, chain consensus.ChainHead
 }
 
 func (co2 *Co2) mintCoins(stateDB *state.StateDB, AmountInWei *big.Int) {
-	// Conjure up some coins and give them to the foundation
 	prevBalance := stateDB.GetBalance(co2.emissions.FoundationAccount)
 	stateDB.AddBalance(co2.emissions.FoundationAccount, AmountInWei)
 	currentBalance := stateDB.GetBalance(co2.emissions.FoundationAccount)
@@ -1214,8 +1203,7 @@ func (co2 *Co2) finalize(header *types.Header) error {
 	return nil
 }
 
-// FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
-// nor block rewards given, and returns the final block.
+// FinalizeAndAssemble implements consensus.Engine.
 func (co2 *Co2) FinalizeAndAssemble(chain consensus.ChainHeaderReader,
 	header *types.Header, state *state.StateDB, txs []*types.Transaction,
 	uncles []*types.Header, receipts []*types.Receipt,
@@ -1247,8 +1235,8 @@ func (co2 *Co2) FinalizeAndAssemble(chain consensus.ChainHeaderReader,
 	return block, nil
 }
 
-// Authorize injects a private key into the consensus engine to mint new blocks
-// with.
+// Authorize injects a private key into the consensus engine to
+// mint new blocks with.
 func (co2 *Co2) Authorize(signer common.Address, signFn SignerFn) {
 	co2.lock.Lock()
 	defer co2.lock.Unlock()
@@ -1269,12 +1257,11 @@ func (co2 *Co2) GetSigner() common.Address {
 }
 
 // Seal implements consensus.Engine, attempting to create a sealed block using
-// the local signing credentials.
+// the local signing credentials and a remote peer's valid signature.
 // The consensus.ChainHeaderReader argument is overlooked as it is not used in the
 // Co2 sealing process. In the original implementation, it was used to get the
 // latest signers to determine who's turn it is to seal the block.
-// In the Co2 implementation, The order is determined by the node's roles (in the future
-// there might be additional rules).
+// In the Co2 implementation, The order is determined by the node's roles.
 func (co2 *Co2) Seal(_ consensus.ChainHeaderReader, block *types.Block,
 	results chan<- *types.Block, stop <-chan struct{}) error {
 	log.Debug("Got new block seal request.", "block number", block.Number().String())
@@ -1474,18 +1461,13 @@ func (co2 *Co2) GetExecutorSig(blockNum uint64) (*types.ExecutorSigDetails, erro
 	log.Warn("Requested signature's block advanced beyond the latest executor sig block number",
 		"requested block number", blockNum, "latest block number", co2.latestExecutorSig.BlockNumber)
 
-	// SODO: check if we are indeed syncing
 	return nil, ErrOutOfSync
 
 }
 
-// APIs implements consensus.Engine, returning the user facing RPC API to allow
-// controlling the signer voting.
+// APIs implements consensus.Engine.
 func (co2 *Co2) APIs(chain consensus.ChainHeaderReader) []rpc.API {
-	return []rpc.API{{
-		Namespace: "clique",
-		Service:   &API{chain: chain, co2: co2},
-	}}
+	return []rpc.API{}
 }
 
 func (co2 *Co2) ExtraSealLength() int {
@@ -1497,7 +1479,6 @@ func (co2 *Co2) SealHash(header *types.Header) common.Hash {
 	return SealHash(header)
 }
 
-// We just return the difficulty by the soda role
 func (co2 *Co2) CalcDifficulty(chain consensus.ChainHeaderReader, time uint64, parent *types.Header) *big.Int {
 	return co2.calcDifficulty()
 }
@@ -1554,7 +1535,7 @@ func (co2 *Co2) RestartBlockWork(number uint64) {
 	}
 }
 
-// Close implements consensus.Engine. It's a noop as there are no background threads.
+// Close implements consensus.Engine.
 func (co2 *Co2) Close() error {
 	return nil
 }
@@ -1635,7 +1616,7 @@ func encodeSigHeader(w io.Writer, header *types.Header, includeExtraSeal bool) {
 	}
 }
 
-// This method is used for obtaining the different parts of the extra data field in a human readable way.
+// This method is used for obtaining the different parts of the extra data field.
 func RetrieveFromExtraData(part shared.ExtraDataPart, extra []byte) ([]byte, error) {
 	cPart := C.CString(string(part))
 	defer C.free(unsafe.Pointer(cPart))
@@ -1685,8 +1666,6 @@ func GetDifficulty(role SodaRoleType) *big.Int {
 	return big.NewInt(0).SetBytes(diffBytes)
 }
 
-// API is a user facing RPC API to allow controlling the signer and voting
-// mechanisms of the proof-of-authority scheme.
 type API struct {
 	chain consensus.ChainHeaderReader
 	co2   *Co2

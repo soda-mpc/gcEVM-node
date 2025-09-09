@@ -147,6 +147,7 @@ var DefaultConfig = Config{
 
 	AccountSlots: 16,
 	GlobalSlots:  4096 + 1024, // urgent + floating queue capacity with 4:1 ratio
+	// increased queue sizes to handle peaks in network congestion for the sequencer
 	AccountQueue: 64 + (7 * boolToUint64(common.IsSequencer()) * 64),
 	GlobalQueue:  1024 + (7 * boolToUint64(common.IsSequencer()) * 1024),
 
@@ -660,7 +661,7 @@ func (pool *LegacyPool) validateTx(tx *types.Transaction, local bool) error {
 // out of the pool due to pricing constraints.
 func (pool *LegacyPool) add(tx *types.Transaction, local bool) (replaced bool, err error) {
 	if common.IsExecutor() {
-		log.Debug(fmt.Sprintf("Executor adding a tx to the TxPool: %v, local: %t", tx, local))
+		log.Error(fmt.Sprintf("Executor adding a tx to the TxPool: %v, local: %t", tx, local))
 	}
 	// If the transaction is already known, discard it
 	hash := tx.Hash()

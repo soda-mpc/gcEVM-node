@@ -1570,7 +1570,6 @@ func (bc *BlockChain) addFutureBlock(block *types.Block) error {
 // the index number of the failing block as well an error describing what went
 // wrong. After insertion is done, all accumulated events will be fired.
 func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
-	log.Debug("InsertChain")
 	if c, ok := bc.engine.(*co2.Co2); ok {
 		var currentBlock *types.Header
 		for i, block := range chain {
@@ -1645,7 +1644,7 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 // is imported, but then new canon-head is added before the actual sidechain
 // completes, then the historic state could be pruned again
 func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool) (int, error) {
-	log.Debug("Inserting chain", "chain length", len(chain))
+	log.Debug("Inserting sub-chain", "sub chain length", len(chain))
 	// If the chain is terminating, don't even bother starting up.
 	if bc.insertStopped() {
 		log.Debug("Insertion stopped, aborting")
@@ -1994,9 +1993,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool) (int, error)
 	}
 
 	// In some cases when we perform a sync for an Executor that crashed during work on
-	// a BLACK block, it already head the RED block in it's DB and thus will not reach
+	// a cannonical block, it already had the pseudo block in it's DB and thus will not reach
 	// the point where it sends the block to the trigger channel.
-	// If we reached this point as an Executor and the last block is a Sequencer block,
+	// If we reached this point as an Executor and the last block is a Sequencer (pseudo) block,
 	// we send it to the trigger channel to get the chain running again.
 	if c, ok := bc.engine.(*co2.Co2); ok && lastCanon != nil {
 		if c.IsExecutor() && c.IsHeaderSignedBySequencer(lastCanon.Header()) {

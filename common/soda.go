@@ -1,14 +1,5 @@
 package common
 
-import (
-	"fmt"
-	"reflect"
-	"runtime"
-	"strings"
-
-	"github.com/ethereum/go-ethereum/log"
-)
-
 type SodaRoleType string
 
 const (
@@ -34,12 +25,6 @@ const (
 	// tx propagation. It does not validate nor adds Sequencer blocks to it's chain, only Executor blocks. (this
 	// means no pseudo-real state blocks are added to it's chain, only real state blocks)
 	Validator SodaRoleType = "validator"
-
-	// Soda Logger
-	entryPrefix = "-----SODA--ENTRY-POINT--|"
-	msgPrefix   = "-----SODA--MESSAGE------|"
-	argPrefix   = "--------------------------------------------------|"
-	filePrefix  = "github.com/ethereum/go-ethereum/"
 )
 
 var (
@@ -54,49 +39,6 @@ var (
 	MpcServerIP          string
 	MpcServerPort        string
 )
-
-func callDetails() string {
-	pc, file, line, ok := runtime.Caller(3)
-	if !ok {
-		return "unavailable call details"
-	}
-	functionObject := runtime.FuncForPC(pc)
-
-	file = strings.Replace(file, filePrefix, "", -1)
-	funcName := strings.Replace(functionObject.Name(), filePrefix, "", -1)
-
-	return fmt.Sprintf("func: %v | file: %s | line: %d |", funcName, file, line)
-}
-
-func msgDetails() string {
-	_, file, line, ok := runtime.Caller(2)
-	if !ok {
-		return "unavailable msg details"
-	}
-
-	file = strings.Replace(file, filePrefix, "", -1)
-	return fmt.Sprintf("In file: %s line %d |", file, line)
-}
-
-func stringifyArgs(args []interface{}) string {
-	strArgs := "Args: \n"
-	for i, arg := range args {
-		name := reflect.TypeOf(arg).Name()
-		if name == "" {
-			name = "Obj"
-		}
-		strArgs += fmt.Sprintf("%s %d) %s: %v, \n", argPrefix, i, name, arg)
-	}
-	return strArgs
-}
-
-func SodaEntry(msg string, args ...interface{}) {
-	log.Error(fmt.Sprintf("%s %s message: %s %s", entryPrefix, callDetails(), msg, stringifyArgs(args)))
-}
-
-func SodaMsg(msg string, args ...interface{}) {
-	log.Info(fmt.Sprintf("%s %s message: %s %s", msgPrefix, msgDetails(), msg, stringifyArgs(args)))
-}
 
 func IsSequencer() bool {
 	return SodaRole == Sequencer
@@ -114,27 +56,10 @@ func IsSoda() bool {
 	return SodaEngine
 }
 
-func IsSequencerAddress(addr Address) bool {
-	return addr.Cmp(SodaSequencerAddress) == 0
-}
-
 func IsSequencerPubKey(pubKey string) bool {
 	return pubKey == SodaSequencerPubKey
 }
 
 func IsExternalValidator() bool {
 	return IsValidator() && SodaSequencerPubKey == "0"
-}
-
-func GetID() int {
-	if id := Id; id != -1 {
-		return id
-	}
-
-	if MyAddress.Cmp(SodaExecutor2Address) > 0 {
-		Id = 0
-	} else {
-		Id = 1
-	}
-	return Id
 }

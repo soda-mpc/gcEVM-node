@@ -186,8 +186,7 @@ func (h *ethHandler) handleExecutorSignature(peer *eth.Peer, packet *eth.Executo
 			}
 			go func() {
 				sigCh := c.GetExecutorSigChannel()
-				// We first drain the channel, old signatures are
-				// not relevant anymore.
+				// We first drain the channel of unconsumed irrelevant signatures.
 				for len(sigCh) > 0 {
 					<-sigCh
 				}
@@ -219,7 +218,7 @@ func (h *ethHandler) HandleResendExecutorsSig(peer *eth.Peer, packet *eth.Resend
 					log.Warn("Executor could not obtain signature, retrieving block from DB")
 					block := h.chain.GetBlockByNumber(packet.BlockNumber)
 					if block == nil {
-						// We didn't find the block in the DB, let's request the red block from the sequencer
+						// We didn't find the block in the DB, let's request the pseudo block from the sequencer
 						// so we can work on it.
 						log.Warn("Executor is missing sequencer block, requesting it from sequencer")
 						if err := h.requestSequencerBlockFromSequencer(peer, co2.Executor, packet.BlockNumber); err != nil {
@@ -232,10 +231,10 @@ func (h *ethHandler) HandleResendExecutorsSig(peer *eth.Peer, packet *eth.Resend
 					// OK we did have the block number, let's check if it's a Sequencer or an Executor block
 					if c.IsHeaderSignedBySequencer(block.Header()) {
 						// A sequencer block!
-						log.Debug("Executor has not created a 'Black' block yet")
+						log.Debug("Executor has not created a 'canonical' block yet")
 						if requestNumber >= uint64(c.RequestSigThreshold) {
 							// We have been requested for the signature more than the threshold, we might need to remake the block.
-							log.Debug("Number of requests above threshold, generating 'Black' block", "block number", packet.BlockNumber)
+							log.Debug("Number of requests above threshold, generating 'canonical' block", "block number", packet.BlockNumber)
 							if c.GetExecutionState() == co2.GeneratingExecutorBlock {
 								// we are in the middle of generating a block, let's restart the work (discarding previous)
 								log.Debug("Restarting block work", "block number", packet.BlockNumber)
@@ -246,7 +245,7 @@ func (h *ethHandler) HandleResendExecutorsSig(peer *eth.Peer, packet *eth.Resend
 								c.GetSequencerBlockChannel() <- block
 							}
 							// we ask for the other Executor to restart in case the block requires MPC
-							// TODO: we should check if the block requires MPC (using a new field in the packet)
+							// TODO: check if the block requires MPC (using a new field in the packet)
 							log.Debug("Requesting block restart", "block number", packet.BlockNumber)
 							peer.SendBlockRestartRequest(block.Number().Uint64())
 						}
