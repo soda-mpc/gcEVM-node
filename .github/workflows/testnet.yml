@@ -1,0 +1,57 @@
+name: Testnet
+
+on:
+  push:
+    branches: [ "testnet", "dev-testnet" ]
+  pull_request:
+    branches: [ "testnet", "dev-testnet"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:  # Define environment variables here
+      GOPROXY: proxy.golang.org,direct
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21 # or the Go version you are using
+      
+      - name: Download dependencies
+        run: go mod download
+      
+      - name: Build
+        run: |
+          make geth
+
+      - name: Set workflow name
+        id: set-workflow-name
+        run: |
+          if [ "${{ github.ref_name }}" = "testnet" ]; then
+            echo "WORKFLOW_NAME=testnet" >> $GITHUB_ENV
+          else
+            echo "WORKFLOW_NAME=dev-testnet" >> $GITHUB_ENV
+          fi
+        
+      - name: Trigger workflow in local devnet repository
+        run: |
+          curl -X POST \
+            --fail \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.LOCAL_DEVNET_WORKFLOW_TRIGGER }}" \
+            https://api.github.com/repos/soda-mpc/local-devnet/actions/workflows/${{ env.WORKFLOW_NAME }}.yml/dispatches
+        shell: /usr/bin/bash -e {0}
+        
+
+      - name: Check Exit Codes
+        run: |
+          if [ ${{ job.status }} == "success" ]; then
+            echo "All processes exited with exit code 0."
+          else
+            echo "One or more processes did not exit with exit code 0."
+          fi

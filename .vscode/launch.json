@@ -1,0 +1,24 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Sequencer",
+            "args": ["--soda.sequencer", "--soda.sequencerblocks=3", "--soda.execaddr=0xff7acc5fe1cbb331cfccf323c692569ccbbae072", "--networkid=15151515", "--nodekey", "launch_debug/network/sequencer_key", "--http", "--http.api", "eth,net,web3,personal,miner,admin", "--http.corsdomain=*", "--http.port=7000", "--metrics.port=7300", "--port=7400", "--authrpc.vhosts=*", "--authrpc.addr=127.0.0.1", "--authrpc.jwtsecret=launch_debug/network/sequencer/execution/jwtsecret", "--authrpc.port=7200", "--ws", "--ws.api=eth,net,web3", "--ws.addr=127.0.0.1", "--ws.origins=*", "--ws.port=7100", "--http.addr=127.0.0.1", "--datadir=launch_debug/network/sequencer/execution", "--password=launch_debug/network/sequencer/pw.txt", "--identity=sequencer", "--maxpendpeers=1", "--verbosity=5", "--password", "launch_debug/network/sequencer/pw.txt", "--unlock", "0xc41Ba88D12f4E1869E287a909aD3D535Ba1FDf80", "--allow-insecure-unlock", "--mine", "--miner.etherbase", "0xc41Ba88D12f4E1869E287a909aD3D535Ba1FDf80", "--nodiscover", "--syncmode=full"],
+            "type": "go",
+            "request": "launch",
+            "mode": "exec",
+            "program": "build/bin/gethd"
+        },
+        {
+            "name": "Executor",
+            "args": ["--soda.executor", "--networkid=15151515", "--nodekey", "launch_debug/network/executor_key", "--http", "--http.api", "eth,net,web3,personal,miner,admin", "--http.corsdomain=*", "--http.port=7002", "--metrics.port=7302", "--port=7402", "--authrpc.vhosts=*", "--authrpc.addr=127.0.0.1", "--authrpc.jwtsecret=launch_debug/network/executor/execution/jwtsecret", "--authrpc.port=7202", "--ws", "--ws.api=eth,net,web3", "--ws.addr=127.0.0.1", "--ws.origins=*", "--ws.port=7102", "--http.addr=127.0.0.1", "--datadir=launch_debug/network/executor/execution", "--password=launch_debug/network/executor/pw.txt", "--identity=executor", "--maxpendpeers=1", "--verbosity=5", "--password", "launch_debug/network/executor/pw.txt", "--nodiscover", "--syncmode=full", "--unlock",  "0xff7acc5fe1cbb331cfccf323c692569ccbbae072", "--allow-insecure-unlock", "--mine", "--miner.etherbase", "0xff7acc5fe1cbb331cfccf323c692569ccbbae072"],
+            "type": "go",
+            "request": "launch",
+            "mode": "exec",
+            "program": "build/bin/gethd"
+        }
+    ]
+}
