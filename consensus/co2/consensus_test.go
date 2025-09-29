@@ -639,7 +639,6 @@ func Test_ValidateBlockForInsertion_Sequencer_Happy(t *testing.T) {
 
 func Test_ShouldAcceptBlock_Sequencer_Fail_WrongSigs(t *testing.T) {
 	// Arrange:
-
 	// Create the previous header as a Sequencer (RED) block.
 	prevHeader := makeHeader(3, difficultySequencer.Int64())
 	// Create the Sequencer's account and both "Executor" accounts
@@ -684,7 +683,6 @@ func Test_ShouldAcceptBlock_Sequencer_Fail_WrongSigs(t *testing.T) {
 
 func Test_ValidateBlockForInsertion_Sequencer_Fail_SkippedExecutorBlock(t *testing.T) {
 	// Arrange:
-
 	// Create the previous header as a Sequencer (RED) block.
 	prevHeader := makeHeader(3, difficultySequencer.Int64())
 	// create the Sequencer's account and both "Executor" accounts
@@ -717,7 +715,6 @@ func Test_ValidateBlockForInsertion_Sequencer_Fail_SkippedExecutorBlock(t *testi
 
 func Test_ValidateBlockForInsertion_Sequencer_Fail_UnorderedSignatures(t *testing.T) {
 	// Arrange:
-
 	// Create the previous header as a Sequencer (RED) block.
 	prevHeader := makeHeader(3, difficultySequencer.Int64())
 	// create the Sequencer's account and both "Executor" accounts
