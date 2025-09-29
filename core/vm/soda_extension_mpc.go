@@ -1930,8 +1930,8 @@ func (c *mpcContract) callOnboard(opName string, input []byte, metadataSize int,
 // isAfterHeliumFork checks if the current block is after the Helium fork
 func (c *mpcContract) isAfterHeliumFork(evm *EVM) bool {
 	if evm == nil || evm.Context.BlockNumber == nil {
-		log.Error("Cannot determine Helium fork state - EVM or block number is nil - assuming Helium fork is active")
-		return true
+		log.Error("Cannot determine Helium fork state - EVM or block number is nil - assuming Helium fork is not active")
+		return false
 	}
 
 	// Get the actual block number from EVM context
@@ -1943,8 +1943,8 @@ func (c *mpcContract) isAfterHeliumFork(evm *EVM) bool {
 		return blockNumber >= heliumForkBlock
 	}
 
-	// If Forks is not defined, assume Helium fork is active from block 0
-	return true
+	// If Forks is not defined, assume Helium fork is not active
+	return false
 }
 
 // is256 boolean parameter added after helium fork
