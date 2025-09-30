@@ -547,7 +547,6 @@ var (
 	ErrInvalidInputFormat     = errors.New("invalid input format")                                       // revert
 	ErrNegativeNumberOfSlices = errors.New("number of slices must be positive")                          // revert
 	ErrVerifySignature        = errors.New("error verifying signature")                                  // revert
-	ErrInavlidCallDepth       = errors.New("invalid call depth")                                         // revert
 	ErrInvalidSignature       = errors.New("invalid signature")                                          // revert
 	ErrInvalidEVMByteArray    = errors.New("input is not a valid EVM byte array")                        // revert
 	ErrInvalidCT              = errors.New("invalid cipher-text")                                        // revert
@@ -576,7 +575,6 @@ var (
 		ErrInvalidInputFormat:     true,
 		ErrNegativeNumberOfSlices: true,
 		ErrVerifySignature:        true,
-		ErrInavlidCallDepth:       true,
 		ErrInvalidSignature:       true,
 		ErrInvalidEVMByteArray:    true,
 		ErrInvalidCT:              true,
@@ -1949,11 +1947,6 @@ func (c *mpcContract) isAfterHeliumFork(evm *EVM) bool {
 
 // is256 boolean parameter added after helium fork
 func (c *mpcContract) callValidateCiphertext(opName string, input []byte, evm *EVM, caller common.Address, addr common.Address, is256 bool) ([]byte, error) {
-	// First check that the call depth is 1, otherwise return an error
-	if evm.depth != 1 {
-		log.Error("CallValidateCiphertext - Invalid call depth")
-		return nil, ErrInavlidCallDepth
-	}
 	// Get relevant parms
 	funcSig := evm.funcSig
 	user := evm.Origin
