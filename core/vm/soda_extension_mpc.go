@@ -1936,9 +1936,9 @@ func (c *mpcContract) isAfterHeliumFork(evm *EVM) bool {
 	blockNumber := evm.Context.BlockNumber.Uint64()
 
 	// Check if CO2 consensus is configured and if we're after the Helium fork
-	if evm.chainConfig != nil && evm.chainConfig.Co2 != nil && evm.chainConfig.Co2.Forks != nil {
+	if evm.chainConfig != nil && evm.chainConfig.Co2 != nil && evm.chainConfig.Co2.Forks != nil && evm.chainConfig.Co2.Forks.Helium != nil {
 		heliumForkBlock := evm.chainConfig.Co2.Forks.Helium
-		return blockNumber >= heliumForkBlock
+		return blockNumber >= heliumForkBlock.Uint64()
 	}
 
 	// If Forks is not defined, assume Helium fork is not active

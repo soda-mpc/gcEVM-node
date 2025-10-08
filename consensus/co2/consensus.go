@@ -185,7 +185,9 @@ func populateForks(forksCfg *params.ForksConfig) Forks {
 	forks := make(Forks)
 	if forksCfg != nil {
 		forks[Hydrogen] = forksCfg.Hydrogen
-		forks[Helium] = forksCfg.Helium
+		if forksCfg.Helium != nil {
+			forks[Helium] = forksCfg.Helium.Uint64()
+		}
 	}
 
 	return forks
@@ -194,7 +196,7 @@ func populateForks(forksCfg *params.ForksConfig) Forks {
 func defaultForks() Forks {
 	return Forks{
 		Hydrogen: 0,
-		Helium:   0,
+		// Helium is not included in default forks (nil = disabled)
 	}
 }
 

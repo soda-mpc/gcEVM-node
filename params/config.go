@@ -367,8 +367,8 @@ type EmissionsConfig struct {
 }
 
 type ForksConfig struct {
-	Hydrogen uint64 `json:"hydrogen"` // Block number for the Hydrogen fork
-	Helium   uint64 `json:"helium"`   // Block number for the Helium fork
+	Hydrogen uint64   `json:"hydrogen"`         // Block number for the Hydrogen fork
+	Helium   *big.Int `json:"helium,omitempty"` // Block number for the Helium fork (nil = disabled, 0 = enabled from genesis, >0 = fork block)
 }
 
 // String implements the stringer interface, returning the consensus engine details.
@@ -464,6 +464,14 @@ func (c *ChainConfig) Description() string {
 	}
 	if c.VerkleTime != nil {
 		banner += fmt.Sprintf(" - Verkle:                      @%-10v\n", *c.VerkleTime)
+	}
+	banner += "\n"
+
+	// Add CO2 consensus forks if configured (block-based post-merge)
+	if c.Co2 != nil && c.Co2.Forks != nil {
+		banner += "Post-Merge hard forks (block based):\n"
+		banner += fmt.Sprintf(" - gcEVM Hydrogen:             #%-8v\n", c.Co2.Forks.Hydrogen)
+		banner += fmt.Sprintf(" - gcEVM Helium:               #%-8v\n", c.Co2.Forks.Helium)
 	}
 	return banner
 }
