@@ -52,5 +52,5 @@ You can build both images in sequence:
 
 ```bash
 docker build -f Dockerfile.geth-installs -t geth-installs:latest . && \
-docker build -f Dockerfile.general-node-rpc -t gcEVM-node:latest .
+docker build -f Dockerfile.general-node-rpc -t general-node:latest .
 ```
