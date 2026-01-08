@@ -13,10 +13,6 @@ This project contains several Dockerfiles for different use cases:
 
 1. **`Dockerfile.geth-installs`** - Base image with Ubuntu 22.04 and build dependencies (OpenSSL, build tools, etc.)
 2. **`Dockerfile.general-node-rpc`** - Main production image with geth built from source, includes MPC support.
-3. **`Dockerfile`** - Standard geth image built with Alpine Linux
-4. **`Dockerfile.alltools`** - Image containing all geth tools built with Alpine Linux
-
-Only the first two files are needed to create a production-ready geth node with MPC.
 
 ## Building the General Node RPC Image
 
