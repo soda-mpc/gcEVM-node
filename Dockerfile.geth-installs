@@ -1,0 +1,12 @@
+FROM ubuntu:22.04
+
+# Set the timezone to avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install necessary packages including OpenSSL 3.0.2
+RUN apt-get update && \
+    apt-get install -y \
+    build-essential \
+    libssl-dev \
+    libspdlog-dev \
+    openssl

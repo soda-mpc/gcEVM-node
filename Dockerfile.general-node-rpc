@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1.2
+FROM geth-installs:latest as builder
+
+# Install required packages for building.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates wget git openssh-client
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Add GitHub to known_hosts in case any SSH interactions are needed.
+RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+# Download and install Go.
+RUN wget https://golang.org/dl/go1.22.0.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz && \
+    rm go1.22.0.linux-amd64.tar.gz
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPATH="/go"
+
+COPY . /go-ethereum
+WORKDIR /go-ethereum
+# Place the shared library and its header in /ses_files so geth can find them.
+RUN mkdir -p /ses_files && cp ses_files/libses.so ses_files/libses.h /ses_files/
+
+# --- build geth from the local source ---
+RUN go mod tidy
+RUN make geth
+RUN cp -R build/bin/geth /usr/local/bin/geth
+
+# Stage 2: Final image.
+FROM geth-installs:latest
+
+# Copy the geth binary and shared library artifacts.
+COPY --from=builder /usr/local/bin/geth /usr/local/bin/geth
+COPY --from=builder /ses_files /ses_files
+
+# Make sure the shared library is executable.
+RUN chmod 755 -R /ses_files
+
+# Set the LD_LIBRARY_PATH to include the shared library.
+ENV LD_LIBRARY_PATH=/ses_files:$LD_LIBRARY_PATH
+
+# Expose the ports that geth uses.
+EXPOSE 8545 8546 6002 30303 30303/udp
+
+# Run geth as the entrypoint.
+ENTRYPOINT ["geth"]
