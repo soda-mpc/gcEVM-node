@@ -1565,6 +1565,22 @@ func (bc *BlockChain) addFutureBlock(block *types.Block) error {
 	return nil
 }
 
+// blockFromDBOrBatch resolves a block by hash/number from the database first,
+// then from earlier entries in the current insertion batch. Co2 pre-validates
+// an entire InsertChain batch before any block is persisted, so parents of
+// blocks after the first are typically only present in-memory in `chain`.
+func blockFromDBOrBatch(getBlock func(common.Hash, uint64) *types.Block, chain types.Blocks, index int, hash common.Hash, number uint64) *types.Block {
+	if b := getBlock(hash, number); b != nil {
+		return b
+	}
+	for j := 0; j < index; j++ {
+		if chain[j].Hash() == hash && chain[j].NumberU64() == number {
+			return chain[j]
+		}
+	}
+	return nil
+}
+
 // InsertChain attempts to insert the given batch of blocks in to the canonical
 // chain or, otherwise, create a fork. If an error is returned it will return
 // the index number of the failing block as well an error describing what went
@@ -1584,7 +1600,10 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 			} else {
 				currentBlock = chain[i-1].Header()
 			}
-			if err := c.ValidateBlockForInsertion(block, currentBlock, bc.GetBlock); err != nil {
+			getBlock := func(hash common.Hash, number uint64) *types.Block {
+				return blockFromDBOrBatch(bc.GetBlock, chain, i, hash, number)
+			}
+			if err := c.ValidateBlockForInsertion(block, currentBlock, getBlock); err != nil {
 				if errors.Is(err, co2.ErrBlockExists) {
 					log.Info("Block already exists, skipping it", "number", block.Number(), "hash", block.Hash())
 					continue
